@@ -35,13 +35,13 @@ if backend != 'cpu': assert (payload / 'bin' / ('libggml-' + backend + '.so')).i
 # Keep installed-library requirements explicit; never redistribute GPU drivers.
 dependencies = subprocess.run(['ldd', str(payload / 'bin' / (engine + '-server'))], check=True, text=True, capture_output=True).stdout
 record = {'version': 1, 'engine': engine, 'upstreamVersion': os.environ['UPSTREAM_VERSION'], 'sourceCommit': source,
-          'os': 'linux', 'arch': arch, 'backend': backend, 'release': os.environ['RELEASE_TAG'], 'cmake': args,
+          'os': 'linux', 'arch': arch, 'backend': backend, 'release': os.environ['RELEASE_TAG'], 'cmake': args, 'builderCommit': os.environ['BUILDER_COMMIT'],
           'externalLibraries': dependencies, 'minimumGlibc': '2.39',
           'cudaRequirements': 'NVIDIA driver >=580, CUDA 13 libcudart/libcublas' if backend == 'cuda' else None}
 (payload / 'build.json').write_text(json.dumps(record, indent=2) + '\n')
 (payload / 'SOURCE.json').write_text(json.dumps({'repository': 'https://github.com/ggml-org/' + engine + '.cpp', 'commit': source,
     'release': 'https://github.com/openresearchtools/bashkitten-localai/releases/tag/' + os.environ['RELEASE_TAG'],
-    'build': 'https://github.com/openresearchtools/bashkitten-localai'}, indent=2) + '\n')
+    'build': 'https://github.com/openresearchtools/bashkitten-localai/tree/' + os.environ['BUILDER_COMMIT']}, indent=2) + '\n')
 # Embedded frontend/vendor dependency license files are collected from the actual
 # built tree, including npm dependencies. Full source below preserves each file.
 if not (root / 'LICENSE').is_file(): raise RuntimeError('Upstream license is missing')
@@ -70,7 +70,8 @@ with tarfile.open(archive, 'w:gz') as tar:
 source_archive = output / (base + '-source.tar.gz')
 with tarfile.open(source_archive, 'w:gz') as tar:
     tar.add(root, arcname='source', filter=lambda info: None if '/.git/' in info.name or info.name.endswith('/.git') else info)
-    tar.add('/package.py', arcname='build/package.py')
+    tar.add('/build-inputs', arcname='build')
+    tar.add('/build-license', arcname='build/LICENSE')
 sha = hashlib.file_digest(archive.open('rb'), 'sha256').hexdigest()
 entry = {key: record[key] for key in ('engine', 'os', 'arch', 'backend', 'sourceCommit')}
 entry.update(file=archive.name, sha256=sha, executable=engine + '-server')

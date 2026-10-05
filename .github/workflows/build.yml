@@ -73,6 +73,7 @@ jobs:
           docker buildx build --progress plain --platform "linux/$ARCH" --target artifact \
             --build-arg "ENGINE=$ENGINE" --build-arg "BACKEND=$BACKEND" \
             --build-arg "SOURCE_COMMIT=$SOURCE_COMMIT" --build-arg "UPSTREAM_VERSION=$UPSTREAM_VERSION" \
+            --build-arg "BUILDER_COMMIT=$GITHUB_SHA" \
             --build-arg "RELEASE_TAG=$RELEASE_TAG" --output type=local,dest=artifacts -f build/Dockerfile .
       - name: Immediate manually downloadable artifacts
         uses: actions/upload-artifact@v6

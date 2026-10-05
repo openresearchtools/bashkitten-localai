@@ -8,6 +8,7 @@ ARG BACKEND
 ARG SOURCE_COMMIT
 ARG UPSTREAM_VERSION
 ARG RELEASE_TAG
+ARG BUILDER_COMMIT
 ENV DEBIAN_FRONTEND=noninteractive
 COPY --from=node /usr/local/ /usr/local/
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg git build-essential cmake ninja-build pkg-config python3 libgomp1 libvulkan-dev glslc spirv-headers xz-utils && rm -rf /var/lib/apt/lists/*
@@ -23,8 +24,10 @@ ENV CUDAToolkit_ROOT=/usr/local/cuda-13.2
 WORKDIR /src
 COPY src/ ./
 COPY build/package.py /package.py
+COPY build/ /build-inputs/
 COPY build/DONOR-LICENSE /donor-license
 COPY LICENSE /build-license
+COPY upstreams.json /build-inputs/upstreams.json
 RUN python3 /package.py build
 FROM scratch AS artifact
 COPY --from=build /out/ /
