@@ -11,7 +11,8 @@ ARG RELEASE_TAG
 ARG BUILDER_COMMIT
 ENV DEBIAN_FRONTEND=noninteractive
 COPY --from=node /usr/local/ /usr/local/
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg git build-essential cmake ninja-build pkg-config python3 libgomp1 libvulkan-dev glslc spirv-headers xz-utils && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg git build-essential gcc-14 g++-14 cmake ninja-build pkg-config python3 libgomp1 libvulkan-dev glslc spirv-headers xz-utils && rm -rf /var/lib/apt/lists/*
+ENV CC=gcc-14 CXX=g++-14 CUDAHOSTCXX=g++-14
 RUN if [ "$BACKEND" = cuda ]; then \
     case "$TARGETARCH" in amd64) cuda_arch=x86_64;; arm64) cuda_arch=sbsa;; *) exit 1;; esac; \
     cuda_repo="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/$cuda_arch"; \
