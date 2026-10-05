@@ -13,7 +13,9 @@ Engine-prefixed releases include checksums, a machine-readable manifest, full
 source, actual dependency notices and build records. Rebuild source changes under
 a new tag; do not replace published bytes.
 
-Linux builds require glibc 2.39 or later. CUDA requires NVIDIA driver 580 or later
+Both engines and every variant require glibc 2.39 or later, libstdc++6, libgcc-s1
+and libgomp1. Each build record lists linked libraries; GPU plugins have their
+additional dependencies recorded too. CUDA requires NVIDIA driver 580 or later
 and CUDA 13 libcudart/libcublas; Vulkan requires a functioning Vulkan loader/driver.
 The CPU artifact requires neither GPU stack. BashKitten reports incompatible
 libraries/devices without changing system drivers or substituting another runtime.

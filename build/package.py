@@ -33,10 +33,12 @@ for filename in (build / 'bin').iterdir():
 assert (payload / 'bin' / (engine + '-server')).is_file()
 if backend != 'cpu': assert (payload / 'bin' / ('libggml-' + backend + '.so')).is_file()
 # Keep installed-library requirements explicit; never redistribute GPU drivers.
-dependencies = subprocess.run(['ldd', str(payload / 'bin' / (engine + '-server'))], check=True, text=True, capture_output=True).stdout
+dependencies = {filename.name: subprocess.run(['ldd', str(filename)], check=True, text=True, capture_output=True).stdout
+                for filename in sorted((payload / 'bin').iterdir()) if filename.is_file()}
 record = {'version': 1, 'engine': engine, 'upstreamVersion': os.environ['UPSTREAM_VERSION'], 'sourceCommit': source,
           'os': 'linux', 'arch': arch, 'backend': backend, 'release': os.environ['RELEASE_TAG'], 'cmake': args, 'builderCommit': os.environ['BUILDER_COMMIT'],
           'externalLibraries': dependencies, 'minimumGlibc': '2.39',
+          'systemPackages': ['libc6', 'libstdc++6', 'libgcc-s1', 'libgomp1'] + (['libvulkan1'] if backend == 'vulkan' else []),
           'cudaRequirements': 'NVIDIA driver >=580, CUDA 13 libcudart/libcublas' if backend == 'cuda' else None}
 (payload / 'build.json').write_text(json.dumps(record, indent=2) + '\n')
 (payload / 'SOURCE.json').write_text(json.dumps({'repository': 'https://github.com/ggml-org/' + engine + '.cpp', 'commit': source,
