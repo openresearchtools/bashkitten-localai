@@ -102,6 +102,16 @@ Cuttlefish, native x86_64 CPU Whisper transcription and Qwen3.5 generation passe
 Both Android architectures' packaged ELF files have at least 16 KiB load alignment;
 the ARM64 binaries still need execution on a physical ARM64 device.
 
+The published Linux CUDA releases built from recipe `8998bc4e4db9` were also
+downloaded through BashKitten's managed installer and executed on an RTX 5090
+Laptop GPU. Qwen3.5 0.8B Q4_0 generated the correct short answer with 25/25 layers
+on CUDA. Whisper tiny Q5_1 and Parakeet Q4_0 transcribed the upstream JFK sample
+correctly with CUDA model buffers. Pocket Q4_0 and Qwen3-TTS Q4_K_M generated
+non-silent 24 kHz speech with every language-model layer and their codec on CUDA.
+Whisper transcribed Qwen's test sentence exactly; Pocket's transcription changed
+the initial article from “The” to “A”. These artifact checks do not replace app UI
+acceptance or establish physical Android GPU compatibility.
+
 The Cuttlefish Intel GFXStream device enumerates in Vulkan but the unmodified
 upstream engine cannot create its inference device: the guest exposes 16-bit
 storage in core Vulkan 1.1 without advertising `VK_KHR_16bit_storage`, which
