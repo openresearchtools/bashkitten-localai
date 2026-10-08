@@ -56,6 +56,8 @@ if engine == 'llama':
     args += ['-DLLAMA_BUILD_TESTS=OFF', '-DLLAMA_BUILD_EXAMPLES=OFF', '-DLLAMA_BUILD_TOOLS=ON',
              '-DLLAMA_BUILD_SERVER=ON', '-DLLAMA_BUILD_APP=OFF', '-DLLAMA_BUILD_UI=ON',
              '-DLLAMA_USE_PREBUILT_UI=OFF', '-DLLAMA_OPENSSL=OFF', '-DLLAMA_SUBPROCESS=ON']
+    if target_os == 'android':
+        args += ['-DCMAKE_PROJECT_INCLUDE=' + str(inputs / 'termux.cmake')]
 else:
     executables = ['whisper-server', 'whisper-cli', 'parakeet-cli', 'parakeet-quantize']
     args += ['-DWHISPER_BUILD_TESTS=OFF', '-DWHISPER_BUILD_EXAMPLES=ON',
@@ -66,7 +68,10 @@ if engine == 'llama':
     # Upstream disables this on Android by default. Termux can spawn native API
     # 28 processes; its persistent router must be able to start model children.
     assert 'LLAMA_SUBPROCESS:BOOL=ON' in (build / 'CMakeCache.txt').read_text().splitlines(), 'Router subprocess support is required'
-    capabilities = {'subprocess': True, 'router': True}
+    if target_os == 'android':
+        assert '-DSUBPROCESS_SPAWN_VIA_FORK=1' in (build / 'build.ninja').read_text(), 'Termux needs the supported fork/exec implementation'
+    capabilities = {'subprocess': True, 'router': True,
+                    'subprocessImplementation': 'fork-exec' if target_os == 'android' else 'posix-spawn'}
 subprocess.run(['cmake', '--build', str(build), '--parallel', str(jobs), '--target', *executables], check=True)
 for filename in (build / 'bin').iterdir():
     if filename.is_file() and (filename.name in executables or '.so' in filename.name):

@@ -95,7 +95,7 @@ jobs:
             --cache-to type=gha,mode=max,scope=builder-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }} \
             -f build/Dockerfile .
           mkdir -p .localai-cache .localai-recipe artifacts
-          cp build/{Dockerfile,package.py,local.sh,DONOR-LICENSE} LICENSE upstreams.json .localai-recipe/
+          cp build/{Dockerfile,package.py,local.sh,termux.cmake,DONOR-LICENSE} LICENSE upstreams.json .localai-recipe/
           docker run --rm --user "$(id -u):$(id -g)" \
             -e ENGINE -e BACKEND -e TARGETOS -e TARGETARCH -e SOURCE_COMMIT -e UPSTREAM_VERSION -e RELEASE_TAG -e BUILDER_COMMIT \
             -e BUILD_JOBS="$(nproc)" -e OMP_WAIT_POLICY=ACTIVE -e GOMP_SPINCOUNT=INFINITE \

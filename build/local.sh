@@ -28,7 +28,7 @@ builder_commit=$(git -C "$repo" rev-parse HEAD)
 recipe_hash=$(python3 - "$repo" <<'PYHASH'
 import hashlib,pathlib,sys
 root=pathlib.Path(sys.argv[1]);h=hashlib.sha256()
-for name in ['build/Dockerfile','build/package.py','build/local.sh','build/DONOR-LICENSE','LICENSE','upstreams.json']:
+for name in ['build/Dockerfile','build/package.py','build/local.sh','build/termux.cmake','build/DONOR-LICENSE','LICENSE','upstreams.json']:
  h.update(name.encode());h.update((root/name).read_bytes())
 print(h.hexdigest())
 PYHASH
@@ -37,7 +37,7 @@ mkdir -p "$work/recipes"
 recipe="$work/recipes/$recipe_hash"
 if [[ ! -d "$recipe" ]]; then
   staging=$(mktemp -d "$work/recipes/.staging.XXXXXX")
-  cp "$repo/build/"{Dockerfile,package.py,local.sh,DONOR-LICENSE} "$repo/"{LICENSE,upstreams.json} "$staging/"
+  cp "$repo/build/"{Dockerfile,package.py,local.sh,termux.cmake,DONOR-LICENSE} "$repo/"{LICENSE,upstreams.json} "$staging/"
   if ! mv -T "$staging" "$recipe" 2>/dev/null; then rm -r "$staging"; fi
 fi
 image="localhost/bashkitten-localai-$os-$backend:builder"

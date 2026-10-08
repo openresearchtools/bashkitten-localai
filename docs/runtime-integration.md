@@ -19,11 +19,15 @@ recommends portable NDK flags: native architecture tuning off, OpenMP off, llama
 off, OpenSSL off and API 28. Our builds follow these and bundle the NDK C++ runtime.
 The official [Termux recipe](https://github.com/termux/termux-packages/blob/master/packages/llama-cpp/build.sh)
 also builds dynamic Vulkan backends. On-device Termux builds use libandroid-spawn;
-our API 28 NDK binaries use Android's native spawn implementation.
+our API 28 NDK binaries select the vendored subprocess library's documented
+`SUBPROCESS_SPAWN_VIA_FORK=1` implementation. Android API 28 lacks the
+`posix_spawn_file_actions_addchdir_np` extension; native fork/exec preserves working
+directories and exec failure reporting without that extension or source changes.
 Upstream defaults `LLAMA_SUBPROCESS` to OFF on Android. These Termux builds
 explicitly enable it; packaging checks the configured value and records
 `capabilities.router` and `capabilities.subprocess` in the manifest and build
-metadata. A server that only passes `--help` is not enough to validate router mode.
+metadata, including `subprocessImplementation: fork-exec` on Android. A server that
+only passes `--help` is not enough to validate router mode.
 
 Set `LD_LIBRARY_PATH` to the selected runtime's `bin` directory. Leave
 `GGML_BACKEND_PATH` unset: at this upstream version it names a single plugin file,
