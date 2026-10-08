@@ -121,6 +121,15 @@ not a promise that every phone driver supports the model.
 
 ## Current device verification
 
+The public `llama-v0.6.0-r1` and `android-llama-v0.6.0-r1` releases completed
+on 8 October 2026. All 14 Linux and 8 Android checksum entries were verified,
+including matching build metadata, full source recipes and license notices. All
+six archives contain the correct-architecture executable `bin/llama-tts`. Both
+package tags and embedded builder provenance identify recipe
+`89fa3bf4db2bc51736e3f79649d434ae3b17598d`. Android x86_64 public archive SHA256
+`a489f0bac4b829253a720f6c92523ee113ccb3e36c1dc08ea4938df8fc9caab6` matches the
+artifact used for the native inference/router checks below.
+
 The exact-release Android x86_64 Vulkan `v0.6.0-r1` llama artifact from Actions
 run `37794302751` generated the correct Qwen3.5 0.8B Q4_0 answer in explicit CPU
 mode (`device=none`, `gpu-layers=0`) with normal GPU visibility. Its native router
