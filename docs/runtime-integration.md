@@ -75,11 +75,31 @@ llama-quantize pocket-tts-en.gguf pocket-tts-en-Q8_0.gguf Q8_0
 Keep the original matching `mmproj-pocket-tts-en.gguf`. The Q4_0 conversion was
 validated with non-silent 24 kHz output on the local Vulkan GPU; F16 was validated
 on CPU. Qwen3-TTS's official Q4_K_M/Q8_0 projector pair was also validated with
-non-silent 24 kHz output with all language-model layers on Vulkan. These checks
-verify inference and audio output, not subjective voice quality. These generated files are local build outputs, not claimed upstream
+non-silent 24 kHz output with all language-model layers on Vulkan. Whisper
+transcribed both generated Vulkan samples back to their exact test sentences.
+These checks verify inference and intelligible audio, not subjective voice
+quality. These generated files are local build outputs, not claimed upstream
 hosted downloads. Test each generated quant before publication. All model source revisions, checksums and
 licenses are in `models.json`.
 
 The primary small language models are Qwen3.5 0.8B, 2B and 4B, sorted smallest first,
 with plain Q4_0 as well as Q4_K_M and Q8_0. A Q4_0 option is a compatibility choice,
 not a promise that every phone driver supports the model.
+
+## Current device verification
+
+The native Linux x86_64 CPU and Vulkan builds transcribed speech, synthesized
+matching Pocket/Qwen3-TTS speech, and generated Qwen3.5 text. On stock Android 17
+Cuttlefish, native x86_64 CPU Whisper transcription and Qwen3.5 generation passed.
+Both Android architectures' packaged ELF files have at least 16 KiB load alignment;
+the ARM64 binaries still need execution on a physical ARM64 device.
+
+The Cuttlefish Intel GFXStream device enumerates in Vulkan but the unmodified
+upstream engine cannot create its inference device: the guest exposes 16-bit
+storage in core Vulkan 1.1 without advertising `VK_KHR_16bit_storage`, which
+upstream nevertheless requests. An isolated diagnostic patch removes that
+extension-name failure, but the guest still fails upstream L2 normalization and
+gated-delta-net correctness checks and generates incorrect text. That diagnostic
+patch is not included in these builds. Vulkan graphics acceleration and device
+enumeration alone therefore do not establish inference correctness. No automatic
+CPU substitution or guest driver changes are performed.
