@@ -1,4 +1,12 @@
 {
-  "llama": {"repository":"ggml-org/llama.cpp","version":"v0.5.0","commit":"7fe450e19305b828c199d602c23a8337aaa1f03b"},
-  "whisper": {"repository":"ggml-org/whisper.cpp","version":"v1.9.4","commit":"927cfce34f31707e17f2bff35c349632fb9e2c3a"}
+  "llama": {
+    "repository": "ggml-org/llama.cpp",
+    "version": "v0.6.0-c811cb8f0ac9",
+    "commit": "c811cb8f0ac91b8ac72a32f970bdd45037f20da7"
+  },
+  "whisper": {
+    "repository": "ggml-org/whisper.cpp",
+    "version": "v1.9.5",
+    "commit": "d1be6fde11ac6e0407606b4e42fe72d34add8037"
+  }
 }

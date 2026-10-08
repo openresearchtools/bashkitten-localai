@@ -1,34 +1,42 @@
-# Mainstream native Linux build, adapted from llama-cpp-arm64-builds d6e2239e.
 # SPDX-License-Identifier: AGPL-3.0-only
 FROM node:24-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS node
-FROM ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS build
-ARG TARGETARCH
-ARG ENGINE
-ARG BACKEND
-ARG SOURCE_COMMIT
-ARG UPSTREAM_VERSION
-ARG RELEASE_TAG
-ARG BUILDER_COMMIT
+FROM ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 COPY --from=node /usr/local/ /usr/local/
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg git build-essential gcc-14 g++-14 cmake ninja-build pkg-config python3 libgomp1 libvulkan-dev glslc spirv-headers xz-utils && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg git build-essential gcc-14 g++-14 cmake ninja-build pkg-config python3 ccache libgomp1 libvulkan-dev glslc spirv-headers xz-utils unzip && rm -rf /var/lib/apt/lists/*
+ARG TARGETARCH
+ARG TARGETOS=linux
+ARG BACKEND=cpu
 ENV CC=gcc-14 CXX=g++-14 CUDAHOSTCXX=g++-14
 RUN if [ "$BACKEND" = cuda ]; then \
     case "$TARGETARCH" in amd64) cuda_arch=x86_64;; arm64) cuda_arch=sbsa;; *) exit 1;; esac; \
     cuda_repo="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/$cuda_arch"; \
     curl -fLsS "$cuda_repo/3bf863cc.pub" | gpg --dearmor -o /usr/share/keyrings/nvidia-cuda.gpg; \
     printf 'deb [signed-by=/usr/share/keyrings/nvidia-cuda.gpg] %s /\n' "$cuda_repo" > /etc/apt/sources.list.d/cuda.list; \
-    apt-get update && apt-get install -y --no-install-recommends cuda-nvcc-13-2 cuda-cudart-dev-13-2 libcublas-dev-13-2 && rm -rf /var/lib/apt/lists/*; \
-    fi
-ENV PATH=/usr/local/cuda-13.2/bin:${PATH}
-ENV CUDAToolkit_ROOT=/usr/local/cuda-13.2
+    apt-get -o Acquire::https::No-Cache=true -o Acquire::Retries=3 update && apt-get install -y --no-install-recommends cuda-nvcc-13-2 cuda-cudart-dev-13-2 libcublas-dev-13-2 && rm -rf /var/lib/apt/lists/*; fi
+# Exact r29 archive checksum from Google's repository2-3.xml. Android builds use
+# Bionic and API 28, never a glibc Linux binary relabelled as a Termux binary.
+RUN if [ "$TARGETOS" = android ]; then \
+    curl -fL --retry 3 https://dl.google.com/android/repository/android-ndk-r29-linux.zip -o /tmp/ndk.zip && \
+    printf '87e2bb7e9be5d6a1c6cdf5ec40dd4e0c6d07c30b  /tmp/ndk.zip\n' | sha1sum -c - && \
+    unzip -q /tmp/ndk.zip -d /opt && rm /tmp/ndk.zip && \
+    mkdir /opt/vulkan-headers && cp -a /usr/include/vulkan /usr/include/vk_video /usr/include/spirv /opt/vulkan-headers/; fi
+ENV PATH=/usr/local/cuda-13.2/bin:${PATH} CUDAToolkit_ROOT=/usr/local/cuda-13.2
+ENV CCACHE_DIR=/cache/ccache CCACHE_MAXSIZE=0 npm_config_cache=/cache/npm
+FROM builder AS build
+ARG ENGINE
+ARG BACKEND
+ARG SOURCE_COMMIT
+ARG UPSTREAM_VERSION
+ARG RELEASE_TAG
+ARG BUILDER_COMMIT
+ARG TARGETOS=linux
+ARG TARGETARCH
+ARG BUILD_JOBS=8
 WORKDIR /src
 COPY src/ ./
-COPY build/package.py /package.py
 COPY build/ /build-inputs/
-COPY build/DONOR-LICENSE /donor-license
-COPY LICENSE /build-license
-COPY upstreams.json /build-inputs/upstreams.json
-RUN python3 /package.py build
+COPY LICENSE upstreams.json /build-inputs/
+RUN --mount=type=cache,target=/cache python3 /build-inputs/package.py
 FROM scratch AS artifact
 COPY --from=build /out/ /

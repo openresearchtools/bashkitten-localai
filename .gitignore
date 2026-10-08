@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.localai-cache/
+artifacts/
+src/
+.localai-recipe/

@@ -1,0 +1,85 @@
+# Runtime integration, verified 2026-10-08
+
+## Router and Android
+
+Run `llama-server --models-dir MODELS --host 127.0.0.1 --port 8080` without `-m` for
+router mode. The process can remain available while no model is loaded. Preserve
+user-controlled per-model launch options in the router presets. Use `-ngl 0` for
+CPU or `-ngl 999` for all layers on the selected GPU; Android has a CPU/GPU selector,
+not a VRAM split UI. `--list-devices` lists actual available ggml devices.
+
+Termux execution is native. Keep models under its private home for direct storage
+access and configure its foreground/background service through BashKitten. Inspect
+`vulkaninfo --summary` and llama's device list before declaring GPU availability;
+llvmpipe is software, not a hardware GPU. Do not install/replace device drivers or
+claim emulator graphics acceleration proves physical phone inference performance.
+
+The upstream [Android guide](https://github.com/ggml-org/llama.cpp/blob/c811cb8f0ac91b8ac72a32f970bdd45037f20da7/docs/android.md)
+recommends portable NDK flags: native architecture tuning off, OpenMP off, llamafile
+off, OpenSSL off and API 28. Our builds follow these and bundle the NDK C++ runtime.
+The official [Termux recipe](https://github.com/termux/termux-packages/blob/master/packages/llama-cpp/build.sh)
+also builds dynamic Vulkan backends. On-device Termux builds use libandroid-spawn;
+our API 28 NDK binaries use Android's native spawn implementation.
+
+Upstream [Adreno subgroup fix](https://github.com/ggml-org/llama.cpp/issues/25734)
+and [Termux shader compiler report](https://github.com/ggml-org/llama.cpp/issues/28234)
+show why current engine and compiler versions matter. The [Mali discussion](https://github.com/ggml-org/llama.cpp/discussions/23193)
+includes both success and software-only device reports. Do not force universal
+Adreno/Mali workarounds or infer Vulkan support from a GPU name.
+
+## Speech recognition
+
+Whisper uses `whisper-server -m MODEL --host 127.0.0.1 --port 8081`, with multipart
+`POST /inference` containing `file` audio and `response_format=json`.
+`-ng` selects CPU. GPU is enabled by default when the selected backend supports it.
+
+Parakeet is a separate API inside whisper.cpp. There is no Parakeet support in
+`whisper-server` at the pinned commit. Use:
+
+```sh
+parakeet-cli -m MODEL -f - -np -ng < audio.wav
+```
+
+Omit `-ng` for GPU. Feed the in-memory recording to stdin (`-f -`); stdout is the
+transcription and stderr contains diagnostics. No temporary audio file is needed.
+The CLI can return success after an audio error, so an empty result must not be
+silently sent. `ggml-org/parakeet-GGUF` publishes Q4_0, Q4_K, Q8_0 and F16 files;
+these are the whisper.cpp format despite the repository's GGUF name.
+
+## Speech synthesis
+
+`llama-tts` is a command-line synthesizer, not a server and not `/v1/audio/speech`.
+
+```sh
+llama-tts -m MODEL.gguf -mm PROJECTOR.gguf -p 'Hello world' \
+  --tts-speaker-file reference.wav --output out.wav -ngl 0
+```
+
+Qwen3-TTS accepts `--tts-lang en` and other documented languages. Pocket's language
+is determined by its weights and requires a speaker reference. Both need the
+matching multimodal projector/codec. Keep memory-only recording/processing policies
+in the app; this example illustrates the upstream file interface only.
+
+Official `ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF` provides Q4_K_M, Q8_0 and BF16
+language-model weights plus Q8_0/BF16 projectors. The verified Pocket download is
+`EryriLabs/pocket-tts-GGUF`'s English model/projector F16 pair. Popular Pocket
+Q4/Q8 repositories for CrispASR, pockettts.cpp and other projects are incompatible
+with llama-tts; do not put those into this runtime's catalog. Additional compatible
+quants can be produced from the verified pair using bundled `llama-quantize`:
+
+```sh
+llama-quantize pocket-tts-en.gguf pocket-tts-en-Q4_0.gguf Q4_0
+llama-quantize pocket-tts-en.gguf pocket-tts-en-Q8_0.gguf Q8_0
+```
+
+Keep the original matching `mmproj-pocket-tts-en.gguf`. The Q4_0 conversion was
+validated with non-silent 24 kHz output on the local Vulkan GPU; F16 was validated
+on CPU. Qwen3-TTS's official Q4_K_M/Q8_0 projector pair was also validated with
+non-silent 24 kHz output with all language-model layers on Vulkan. These checks
+verify inference and audio output, not subjective voice quality. These generated files are local build outputs, not claimed upstream
+hosted downloads. Test each generated quant before publication. All model source revisions, checksums and
+licenses are in `models.json`.
+
+The primary small language models are Qwen3.5 0.8B, 2B and 4B, sorted smallest first,
+with plain Q4_0 as well as Q4_K_M and Q8_0. A Q4_0 option is a compatibility choice,
+not a promise that every phone driver supports the model.

@@ -43,13 +43,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64, arm64]
-        backend: [cpu, vulkan, cuda]
         include:
-          - arch: amd64
-            runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
+          - {os: linux, arch: amd64, backend: cpu, runner: ubuntu-24.04}
+          - {os: linux, arch: amd64, backend: vulkan, runner: ubuntu-24.04}
+          - {os: linux, arch: amd64, backend: cuda, runner: ubuntu-24.04}
+          - {os: linux, arch: arm64, backend: cpu, runner: ubuntu-24.04-arm}
+          - {os: linux, arch: arm64, backend: vulkan, runner: ubuntu-24.04-arm}
+          - {os: linux, arch: arm64, backend: cuda, runner: ubuntu-24.04-arm}
+          - {os: android, arch: amd64, backend: cpu, runner: ubuntu-24.04}
+          - {os: android, arch: amd64, backend: vulkan, runner: ubuntu-24.04}
+          - {os: android, arch: arm64, backend: cpu, runner: ubuntu-24.04}
+          - {os: android, arch: arm64, backend: vulkan, runner: ubuntu-24.04}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
@@ -61,24 +65,40 @@ jobs:
           path: src
           submodules: recursive
       - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd
-      - name: Build native server
+      - uses: actions/cache@v4
+        with:
+          path: .localai-cache
+          key: localai-${{ inputs.engine }}-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }}-${{ needs.source.outputs.commit }}-${{ github.sha }}
+          restore-keys: |
+            localai-${{ inputs.engine }}-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }}-
+      - name: Build cached native runtimes
         env:
           ENGINE: ${{ inputs.engine }}
           BACKEND: ${{ matrix.backend }}
-          ARCH: ${{ matrix.arch }}
+          TARGETOS: ${{ matrix.os }}
+          TARGETARCH: ${{ matrix.arch }}
           SOURCE_COMMIT: ${{ needs.source.outputs.commit }}
           UPSTREAM_VERSION: ${{ needs.source.outputs.version }}
           RELEASE_TAG: ${{ needs.source.outputs.release }}
+          BUILDER_COMMIT: ${{ github.sha }}
         run: |
-          docker buildx build --progress plain --platform "linux/$ARCH" --target artifact \
-            --build-arg "ENGINE=$ENGINE" --build-arg "BACKEND=$BACKEND" \
-            --build-arg "SOURCE_COMMIT=$SOURCE_COMMIT" --build-arg "UPSTREAM_VERSION=$UPSTREAM_VERSION" \
-            --build-arg "BUILDER_COMMIT=$GITHUB_SHA" \
-            --build-arg "RELEASE_TAG=$RELEASE_TAG" --output type=local,dest=artifacts -f build/Dockerfile .
+          docker buildx build --progress plain --target builder --load -t localai-builder \
+            --build-arg "TARGETARCH=$TARGETARCH" --build-arg "TARGETOS=$TARGETOS" --build-arg "BACKEND=$BACKEND" \
+            --cache-from type=gha,scope=builder-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }} \
+            --cache-to type=gha,mode=max,scope=builder-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }} \
+            -f build/Dockerfile .
+          mkdir -p .localai-cache .localai-recipe artifacts
+          cp build/{Dockerfile,package.py,local.sh,DONOR-LICENSE} LICENSE upstreams.json .localai-recipe/
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e ENGINE -e BACKEND -e TARGETOS -e TARGETARCH -e SOURCE_COMMIT -e UPSTREAM_VERSION -e RELEASE_TAG -e BUILDER_COMMIT \
+            -e BUILD_JOBS="$(nproc)" -e OMP_WAIT_POLICY=ACTIVE -e GOMP_SPINCOUNT=INFINITE \
+            -e BUILD_INPUTS=/recipe -v "$PWD/src:/src" -v "$PWD/.localai-cache:/cache" -v "$PWD/artifacts:/out" \
+            -v "$PWD/.localai-recipe:/recipe:ro" \
+            localai-builder python3 /recipe/package.py
       - name: Immediate manually downloadable artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.engine }}-${{ matrix.arch }}-${{ matrix.backend }}
+          name: ${{ inputs.engine }}-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }}
           path: artifacts/*
           if-no-files-found: error
   release:
@@ -105,8 +125,8 @@ jobs:
           import hashlib,json,os,pathlib
           root=pathlib.Path('artifacts')
           entries=[json.loads(p.read_text()) for p in root.glob('*.json')]
-          expected={(a,b) for a in ('arm64','amd64') for b in ('cpu','vulkan','cuda')}
-          assert {(e['arch'],e['backend']) for e in entries} == expected
+          expected={(o,a,b) for o in ('linux','android') for a in ('arm64','amd64') for b in ('cpu','vulkan','cuda') if o=='linux' or b!='cuda'}
+          assert len(entries)==len(expected) and {(e['os'],e['arch'],e['backend']) for e in entries} == expected
           for e in entries:
               assert e['sourceCommit']==os.environ['SOURCE_COMMIT'] and e['engine']==os.environ['ENGINE']
               assert hashlib.file_digest((root/e['file']).open('rb'),'sha256').hexdigest()==e['sha256']

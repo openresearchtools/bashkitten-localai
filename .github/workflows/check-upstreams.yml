@@ -17,7 +17,9 @@ jobs:
           pins=json.load(open('upstreams.json'))
           for engine,pin in pins.items():
               latest=json.loads(subprocess.check_output(['gh','api','repos/'+pin['repository']+'/releases/latest']))
+              head=json.loads(subprocess.check_output(['gh','api','repos/'+pin['repository']+'/commits/master']))
               print(engine+': pinned '+pin['version']+'; upstream '+latest['tag_name'])
-              if latest['tag_name']!=pin['version']:
+              print('Mainstream master: '+head['sha'])
+              if head['sha']!=pin['commit']:
                   print('Update upstreams.json with the verified commit, then build and manually verify before publication.')
           PY
