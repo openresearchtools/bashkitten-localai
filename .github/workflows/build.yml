@@ -108,6 +108,9 @@ jobs:
           if-no-files-found: error
   release:
     needs: [source, build]
+    strategy:
+      matrix:
+        platform: [linux, android]
     if: ${{ inputs.publish }}
     runs-on: ubuntu-24.04
     permissions:
@@ -117,20 +120,22 @@ jobs:
       - uses: actions/download-artifact@v7
         with:
           path: artifacts
+          pattern: ${{ inputs.engine }}-${{ matrix.platform }}-*
           merge-multiple: true
       - name: Collect release manifest and checksums
         env:
           ENGINE: ${{ inputs.engine }}
           SOURCE_COMMIT: ${{ needs.source.outputs.commit }}
           UPSTREAM_VERSION: ${{ needs.source.outputs.version }}
-          RELEASE_TAG: ${{ needs.source.outputs.release }}
+          RELEASE_TAG: ${{ matrix.platform == 'android' && format('android-{0}', needs.source.outputs.release) || needs.source.outputs.release }}
+          TARGETOS: ${{ matrix.platform }}
         run: |
           git archive --format=tar.gz --output artifacts/build-source.tar.gz HEAD
           python3 - <<'PY'
           import hashlib,json,os,pathlib
           root=pathlib.Path('artifacts')
           entries=[json.loads(p.read_text()) for p in root.glob('*.json')]
-          expected={(o,a,b) for o in ('linux','android') for a in ('arm64','amd64') for b in ('cpu','vulkan','cuda') if o=='linux' or b!='cuda'}
+          expected={(os.environ['TARGETOS'],a,b) for a in ('arm64','amd64') for b in ('cpu','vulkan','cuda') if os.environ['TARGETOS']=='linux' or b!='cuda'}
           assert len(entries)==len(expected) and {(e['os'],e['arch'],e['backend']) for e in entries} == expected
           for e in entries:
               assert e['sourceCommit']==os.environ['SOURCE_COMMIT'] and e['engine']==os.environ['ENGINE']
@@ -145,7 +150,7 @@ jobs:
       - name: Publish testing runtime release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.source.outputs.release }}
+          RELEASE_TAG: ${{ matrix.platform == 'android' && format('android-{0}', needs.source.outputs.release) || needs.source.outputs.release }}
           ENGINE: ${{ inputs.engine }}
         run: |
-          gh release create "$RELEASE_TAG" artifacts/* --title "$ENGINE native runtimes" --prerelease --notes-file release-notes.md
+          gh release create "$RELEASE_TAG" artifacts/* --title "$ENGINE native runtimes" --prerelease --latest=false --notes-file release-notes.md

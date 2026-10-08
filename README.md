@@ -39,7 +39,10 @@ retains image layers and every build reuses its platform/backend CMake tree.
 
 The Actions workflow also persists CMake/ccache/npm caches and builder layers.
 Every matrix job uploads its archive and complete source immediately; publishing
-is a workflow option after the full Linux/Android matrix succeeds. Release assets
+is a workflow option after the full Linux/Android matrix succeeds. Desktop tags
+start with `llama-` or `whisper-`; native Android tags start with `android-llama-`
+or `android-whisper-`. Each published platform has its complete architecture and
+backend matrix, so a mobile release never displaces desktop downloads. Release assets
 contain manifest v1 with `os`, `arch`, `backend`, `sourceCommit`, `file`, `sha256`,
 `executable`, and `executables`. Android uses `os: android`, `arch: arm64|amd64` and
 `minimumAndroidApi: 28`. Rebuild under a new immutable tag.
