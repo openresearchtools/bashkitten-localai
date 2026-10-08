@@ -49,6 +49,10 @@ zero. Positive minutes map to seconds. Sleep frees the model and its active KV
 context, and a new request reloads it. There is no separate KV-cache TTL setting;
 `cache-ram` is a MiB limit (zero disables, -1 unlimited), not a duration. Router
 capacity eviction can still unload an idle model even if sleeping is disabled.
+Router `GET /models` returns cached model metadata. `GET /health` and child
+`GET /props` bypass the inference task queue and remain accessible during sleep.
+These discovery requests do not reset the model's idle timer. Avoid using
+`GET /slots` for passive status: it queues work and can wake/reset a model.
 
 Upstream [Adreno subgroup fix](https://github.com/ggml-org/llama.cpp/issues/25734)
 and [Termux shader compiler report](https://github.com/ggml-org/llama.cpp/issues/28234)
@@ -117,9 +121,18 @@ not a promise that every phone driver supports the model.
 
 ## Current device verification
 
-The evidence below covers previous `c811cb8f0ac9` llama artifacts and released
-whisper v1.9.5. New exact-release `v0.6.0-r1` llama artifacts need separate execution
-validation; build success alone does not inherit these results.
+The exact-release Android x86_64 Vulkan `v0.6.0-r1` llama artifact from Actions
+run `37794302751` generated the correct Qwen3.5 0.8B Q4_0 answer in explicit CPU
+mode (`device=none`, `gpu-layers=0`) with normal GPU visibility. Its native router
+also loaded that model from an INI, spawned its child and returned the correct
+answer through `/v1/chat/completions`; both processes exited after the check.
+The published Android x86_64 Vulkan `v1.9.5-r1` whisper artifact transcribed the
+upstream JFK sample correctly with `-ng` and empty Vulkan visibility. These checks
+use the new release bytes, not an earlier build with similar version text.
+
+The additional evidence below covers previous `c811cb8f0ac9` llama artifacts and
+released whisper v1.9.5. It does not establish that the new exact-release llama
+CUDA, TTS or physical ARM64 artifacts have executed successfully.
 
 The published Android Vulkan llama archive from recipe `3926d9a0290d` also
 successfully generated coherent Qwen3.5 text on Cuttlefish with explicit CPU mode
