@@ -87,7 +87,7 @@ their dependencies retain their own licenses, which are collected in each
 archive's `LICENSES.txt` (and Android NDK notice). The BashKitten application is
 a separate repository with its own license.
 
-Previously published packages and the running r1 build preserve their original
-source and recipe notices. Their files and tags are immutable; this license
+Packages built from earlier recipe revisions (including r1) preserve their
+original source and recipe notices. Their files and tags are immutable; this license
 change does not overwrite historical archives or trigger engine recompilation.
 Future package revisions use the MIT build-integration notice.
