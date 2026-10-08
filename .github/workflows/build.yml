@@ -58,6 +58,8 @@ jobs:
               for platform in (['android'] if targets == 'android' else ['linux', 'android']):
                   tag = ('android-' if platform == 'android' else '') + release
                   assert api('repos/' + os.environ['GITHUB_REPOSITORY'] + '/releases/tags/' + tag, missing=True) is None, 'Release already exists: ' + tag + '; use an explicit new packageRevision for a recipe fix'
+                  ref = api('repos/' + os.environ['GITHUB_REPOSITORY'] + '/git/ref/tags/' + tag, missing=True)
+                  assert ref is None or (ref['object']['type'] == 'commit' and ref['object']['sha'] == os.environ['GITHUB_SHA']), 'Existing package tag does not identify this recipe: ' + tag
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
               for name in ('commit', 'version', 'repository'):
                   print(name + '=' + pin[name], file=out)
