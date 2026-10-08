@@ -19,7 +19,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: localai-${{ inputs.engine }}
+  group: localai-${{ inputs.engine }}-${{ inputs.targets }}
   cancel-in-progress: false
 jobs:
   source:
