@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT
 """Resolve stable upstream release tags; never select a branch or target_commitish."""
 import argparse
 import json

@@ -1,4 +1,4 @@
-# BashKitten LocalAI runtimes
+# BashKitten LocalAI · llama.cpp, llama-tts, Whisper and Parakeet
 
 ![Testing releases: current releases are for automated testing only. Not ready for production. Coming soon.](docs/testing-releases.svg)
 
@@ -12,6 +12,10 @@ peeled commit, release URL/ID and our integer package revision. Llama is v0.6.0;
 whisper is v1.9.5. The build verifies the actual release tag, not GitHub's
 `target_commitish` field. No fork or GPU workaround patch is applied. Model weights
 and GPU drivers are not bundled.
+
+**Text to speech is included in every llama archive as `bin/llama-tts`.** It is
+built from the same official llama.cpp release as the router; it is not a separate
+repository or download. Pocket TTS and Qwen3-TTS model files remain separate.
 
 Llama archives include `bin/llama-server`, `llama-cli`, `llama-tts`, and
 `llama-quantize`; whisper archives include `whisper-server`, `whisper-cli`,
@@ -73,3 +77,17 @@ Hugging Face revisions, byte sizes and SHA256s. Product UI remains in
 Build recipes derive from MIT-licensed
 [llama-cpp-arm64-builds](https://github.com/openresearchtools/llama-cpp-arm64-builds/tree/d6e2239e6b96365b6c79391c137c4e1e4df2944c).
 Archives include upstream licenses, actual dependency notices and full source.
+
+## Licenses
+
+This repository's own build integration and documentation are **MIT licensed**;
+see [LICENSE](LICENSE). The original MIT recipe attribution remains in
+[build/DONOR-LICENSE](build/DONOR-LICENSE). Upstream llama.cpp, whisper.cpp and
+their dependencies retain their own licenses, which are collected in each
+archive's `LICENSES.txt` (and Android NDK notice). The BashKitten application is
+a separate repository with its own license.
+
+Previously published packages and the running r1 build preserve their original
+source and recipe notices. Their files and tags are immutable; this license
+change does not overwrite historical archives or trigger engine recompilation.
+Future package revisions use the MIT build-integration notice.

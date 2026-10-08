@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT
 set -euo pipefail
 main() {
 engine=${1:?Usage: build/local.sh llama|whisper linux|android amd64|arm64 vulkan|cuda}

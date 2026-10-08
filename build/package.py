@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT
 """Build unchanged pinned ggml engines for Linux or native Android/Termux."""
 import hashlib
 import json
@@ -127,7 +127,7 @@ record = {'version': 1, 'engine': engine, 'upstreamVersion': os.environ['UPSTREA
     'release': 'https://github.com/openresearchtools/bashkitten-localai/releases/tag/' + release,
     'build': 'https://github.com/openresearchtools/bashkitten-localai/tree/' + os.environ['BUILDER_COMMIT']}, indent=2) + '\n')
 if not (root / 'LICENSE').is_file(): raise RuntimeError('Upstream license is missing')
-notices = ['===== BashKitten build integration (AGPL-3.0-only) =====\n' + (inputs / 'LICENSE').read_text(),
+notices = ['===== BashKitten build integration (MIT) =====\n' + (inputs / 'LICENSE').read_text(),
            '===== MIT build recipe provenance =====\n' + (inputs / 'DONOR-LICENSE').read_text()]
 for filename in sorted(root.rglob('*')):
     if '.git' in filename.parts or not filename.is_file(): continue

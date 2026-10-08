@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT
 # API 28 supports native fork/exec, but not the addchdir posix_spawn extension.
 # The pinned upstream subprocess.h explicitly supports this implementation switch.
 # Keep working-directory support and exec failure reporting without a source patch.
