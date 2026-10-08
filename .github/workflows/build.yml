@@ -11,6 +11,11 @@ on:
         type: boolean
         description: Publish testing runtime release after all builds pass
         default: false
+      targets:
+        type: choice
+        description: Full release matrix or native ARM64 desktop builds
+        options: [all, linux-arm64]
+        default: all
 permissions:
   contents: read
 concurrency:
@@ -24,36 +29,36 @@ jobs:
       version: ${{ steps.pin.outputs.version }}
       repository: ${{ steps.pin.outputs.repository }}
       release: ${{ steps.pin.outputs.release }}
+      matrix: ${{ steps.pin.outputs.matrix }}
     steps:
       - uses: actions/checkout@v6
       - id: pin
         env:
           ENGINE: ${{ inputs.engine }}
+          TARGETS: ${{ inputs.targets }}
+          PUBLISH: ${{ inputs.publish }}
         run: |
           python3 - <<'PY'
           import json, os
           pin = json.load(open('upstreams.json'))[os.environ['ENGINE']]
+          targets = os.environ.get('TARGETS') or 'all'
+          assert targets in ('all', 'linux-arm64')
+          assert os.environ['PUBLISH'] != 'true' or targets == 'all', 'Publishing requires the full release matrix'
+          matrix = [{'os': system, 'arch': arch, 'backend': backend,
+                     'runner': 'ubuntu-24.04-arm' if system == 'linux' and arch == 'arm64' else 'ubuntu-24.04'}
+                    for system in ('linux', 'android') for arch in ('amd64', 'arm64') for backend in ('cpu', 'vulkan', 'cuda')
+                    if (system == 'linux' or backend != 'cuda') and (targets == 'all' or (system, arch) == ('linux', 'arm64'))]
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
               for name in ('commit', 'version', 'repository'):
                   print(name + '=' + pin[name], file=out)
               print('release=' + os.environ['ENGINE'] + '-' + pin['version'] + '-' + os.environ['GITHUB_SHA'][:12], file=out)
+              print('matrix=' + json.dumps({'include': matrix}), file=out)
           PY
   build:
     needs: source
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - {os: linux, arch: amd64, backend: cpu, runner: ubuntu-24.04}
-          - {os: linux, arch: amd64, backend: vulkan, runner: ubuntu-24.04}
-          - {os: linux, arch: amd64, backend: cuda, runner: ubuntu-24.04}
-          - {os: linux, arch: arm64, backend: cpu, runner: ubuntu-24.04-arm}
-          - {os: linux, arch: arm64, backend: vulkan, runner: ubuntu-24.04-arm}
-          - {os: linux, arch: arm64, backend: cuda, runner: ubuntu-24.04-arm}
-          - {os: android, arch: amd64, backend: cpu, runner: ubuntu-24.04}
-          - {os: android, arch: amd64, backend: vulkan, runner: ubuntu-24.04}
-          - {os: android, arch: arm64, backend: cpu, runner: ubuntu-24.04}
-          - {os: android, arch: arm64, backend: vulkan, runner: ubuntu-24.04}
+      matrix: ${{ fromJSON(needs.source.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
