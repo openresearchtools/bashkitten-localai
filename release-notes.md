@@ -1,3 +1,5 @@
+![Testing releases: current releases are for automated testing only. Not ready for production. Coming soon.](https://raw.githubusercontent.com/openresearchtools/bashkitten-localai/main/docs/testing-releases.svg)
+
 **Testing releases only. Not ready for production.**
 
 Pinned mainstream llama.cpp (including llama-tts) or whisper.cpp (including
