@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import struct
 import subprocess
 import tarfile
 
@@ -72,6 +73,14 @@ if target_os == 'android':
     readelf = ndk / 'toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf'
     dependencies = {p.name: subprocess.check_output([str(readelf), '-d', str(p)], text=True)
                     for p in sorted((payload / 'bin').iterdir())}
+    for filename in (payload / 'bin').iterdir():
+        with filename.open('rb') as file:
+            header = struct.unpack('<16sHHIQQQIHHHHHH', file.read(64))
+            assert header[0][:6] == b'\x7fELF\x02\x01' and header[2] == (62 if arch == 'amd64' else 183), filename
+            assert header[9] == 56 and header[10] > 0, filename
+            file.seek(header[5])
+            loads = [segment for _ in range(header[10]) if (segment := struct.unpack('<IIQQQQQQ', file.read(56)))[0] == 1]
+            assert loads and all(segment[7] >= 16384 and (segment[3] - segment[2]) % 16384 == 0 for segment in loads), f'Android ELF needs 16 KiB load alignment: {filename}'
     shutil.copy2(ndk / 'NOTICE', payload / 'ANDROID-NDK-NOTICE.txt')
 else:
     dependencies = {p.name: subprocess.check_output(['ldd', str(p)], text=True)
