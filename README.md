@@ -39,7 +39,8 @@ retains image layers and every build reuses its platform/backend CMake tree.
 
 The Actions workflow also persists CMake/ccache/npm caches and builder layers.
 Every matrix job uploads its archive and complete source immediately; publishing
-is a workflow option after the full Linux/Android matrix succeeds. Desktop tags
+is a workflow option after the full Linux/Android matrix or complete Android-only
+matrix succeeds. Desktop tags
 start with `llama-` or `whisper-`; native Android tags start with `android-llama-`
 or `android-whisper-`. Each published platform has its complete architecture and
 backend matrix, so a mobile release never displaces desktop downloads. Release assets
@@ -53,6 +54,9 @@ working platform Vulkan loader and hardware driver. Android includes NDK
 `libc++_shared.so` and its notice; no Termux libc++ package mismatch is required.
 Keep `LD_LIBRARY_PATH` pointed at the selected archive's `bin` directory. CPU/GPU
 selection must be explicit; runtime failure never silently changes backends.
+Leave `GGML_BACKEND_PATH` unset; it names a single library, not a directory.
+Llama builds explicitly enable subprocess support, including on Android, for the
+router to launch model workers. Build metadata and manifests record this capability.
 
 See [runtime integration](docs/runtime-integration.md) for commands, compatible
 model assets and Android GPU considerations. `models.json` records verified

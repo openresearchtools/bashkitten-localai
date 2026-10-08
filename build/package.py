@@ -55,12 +55,18 @@ if engine == 'llama':
     executables = ['llama-server', 'llama-cli', 'llama-tts', 'llama-quantize']
     args += ['-DLLAMA_BUILD_TESTS=OFF', '-DLLAMA_BUILD_EXAMPLES=OFF', '-DLLAMA_BUILD_TOOLS=ON',
              '-DLLAMA_BUILD_SERVER=ON', '-DLLAMA_BUILD_APP=OFF', '-DLLAMA_BUILD_UI=ON',
-             '-DLLAMA_USE_PREBUILT_UI=OFF', '-DLLAMA_OPENSSL=OFF']
+             '-DLLAMA_USE_PREBUILT_UI=OFF', '-DLLAMA_OPENSSL=OFF', '-DLLAMA_SUBPROCESS=ON']
 else:
     executables = ['whisper-server', 'whisper-cli', 'parakeet-cli', 'parakeet-quantize']
     args += ['-DWHISPER_BUILD_TESTS=OFF', '-DWHISPER_BUILD_EXAMPLES=ON',
              '-DWHISPER_BUILD_SERVER=ON', '-DWHISPER_CURL=OFF']
 subprocess.run(args, check=True)
+capabilities = {}
+if engine == 'llama':
+    # Upstream disables this on Android by default. Termux can spawn native API
+    # 28 processes; its persistent router must be able to start model children.
+    assert 'LLAMA_SUBPROCESS:BOOL=ON' in (build / 'CMakeCache.txt').read_text().splitlines(), 'Router subprocess support is required'
+    capabilities = {'subprocess': True, 'router': True}
 subprocess.run(['cmake', '--build', str(build), '--parallel', str(jobs), '--target', *executables], check=True)
 for filename in (build / 'bin').iterdir():
     if filename.is_file() and (filename.name in executables or '.so' in filename.name):
@@ -93,6 +99,7 @@ else:
 record = {'version': 1, 'engine': engine, 'upstreamVersion': os.environ['UPSTREAM_VERSION'], 'sourceCommit': source,
           'os': target_os, 'arch': arch, 'backend': backend, 'release': os.environ['RELEASE_TAG'],
           'cmake': args, 'builderCommit': os.environ['BUILDER_COMMIT'], 'executables': executables,
+          'capabilities': capabilities,
           'recipeSHA256': {str(p.relative_to(inputs)): hashlib.file_digest(p.open('rb'), 'sha256').hexdigest()
                            for p in inputs.rglob('*') if p.is_file()},
           'externalLibraries': dependencies, 'minimumGlibc': '2.39' if target_os == 'linux' else None,
@@ -129,6 +136,6 @@ with tarfile.open(source_archive, 'w:gz') as tar:
 sha = hashlib.file_digest(archive.open('rb'), 'sha256').hexdigest()
 entry = {key: record[key] for key in ('engine', 'os', 'arch', 'backend', 'sourceCommit')}
 entry.update(file=archive.name, sha256=sha, executable=engine + '-server', executables=executables,
-             minimumAndroidApi=record['minimumAndroidApi'])
+             minimumAndroidApi=record['minimumAndroidApi'], capabilities=capabilities)
 (output / (base + '.json')).write_text(json.dumps(entry, indent=2) + '\n')
 print(json.dumps(entry))
