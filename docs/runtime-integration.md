@@ -139,9 +139,25 @@ The published Android x86_64 Vulkan `v1.9.5-r1` whisper artifact transcribed the
 upstream JFK sample correctly with `-ng` and empty Vulkan visibility. These checks
 use the new release bytes, not an earlier build with similar version text.
 
-The additional evidence below covers previous `c811cb8f0ac9` llama artifacts and
-released whisper v1.9.5. It does not establish that the new exact-release llama
-CUDA, TTS or physical ARM64 artifacts have executed successfully.
+The exact published Linux amd64 CUDA `v0.6.0-r1` and `v1.9.5-r1` archives also
+passed stock-binary inference checks on the RTX 5090 Laptop GPU. Qwen3.5 0.8B
+Q4_0 returned “Two plus two equals four.” with all 25 layers on CUDA. Its router
+loaded the same model from an INI, spawned a CUDA child and returned the same
+answer through `/v1/chat/completions`. The router and child exited successfully,
+with no remaining owned process or listener.
+
+Whisper tiny Q5_1 and Parakeet Q4_0 each transcribed the upstream JFK sample
+correctly with CUDA model buffers. Pocket Q4_0 and Qwen3-TTS Q4_K_M generated
+non-silent 24 kHz speech; their logs confirm respectively 7/7 and 29/29 layers,
+plus both codecs, on CUDA. Whisper transcribed both generated samples exactly as
+“The local speech engine is ready.” All stock commands completed successfully;
+GPU memory returned to its 16 MiB baseline and no CUDA compute process remained.
+These checks reused existing public models, compiled no native code and changed
+no application configuration. They establish artifact execution, not app UI
+acceptance or physical ARM64 compatibility.
+
+The additional historical evidence below covers previous `c811cb8f0ac9` llama
+artifacts and released whisper v1.9.5.
 
 The published Android Vulkan llama archive from recipe `3926d9a0290d` also
 successfully generated coherent Qwen3.5 text on Cuttlefish with explicit CPU mode
