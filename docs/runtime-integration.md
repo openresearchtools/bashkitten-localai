@@ -5,7 +5,7 @@
 Run `llama-server --models-dir MODELS --host 127.0.0.1 --port 8080` without `-m` for
 router mode. The process can remain available while no model is loaded. Preserve
 user-controlled per-model launch options in the router presets. Use `-ngl 0` for
-CPU or `-ngl 999` for all layers on the selected GPU; Android has a CPU/GPU selector,
+CPU together with `--device none`, or `-ngl all` for all layers on the selected GPU; Android has a CPU/GPU selector,
 not a VRAM split UI. `--list-devices` lists actual available ggml devices.
 
 Termux execution is native. Keep models under its private home for direct storage
@@ -14,7 +14,7 @@ access and configure its foreground/background service through BashKitten. Inspe
 llvmpipe is software, not a hardware GPU. Do not install/replace device drivers or
 claim emulator graphics acceleration proves physical phone inference performance.
 
-The upstream [Android guide](https://github.com/ggml-org/llama.cpp/blob/c811cb8f0ac91b8ac72a32f970bdd45037f20da7/docs/android.md)
+The upstream [Android guide](https://github.com/ggml-org/llama.cpp/blob/d81235049384534c167caea52b85a694f6103d14/docs/android.md)
 recommends portable NDK flags: native architecture tuning off, OpenMP off, llamafile
 off, OpenSSL off and API 28. Our builds follow these and bundle the NDK C++ runtime.
 The official [Termux recipe](https://github.com/termux/termux-packages/blob/master/packages/llama-cpp/build.sh)
@@ -32,6 +32,23 @@ only passes `--help` is not enough to validate router mode.
 Set `LD_LIBRARY_PATH` to the selected runtime's `bin` directory. Leave
 `GGML_BACKEND_PATH` unset: at this upstream version it names a single plugin file,
 not a search directory. GGML discovers the sibling backend libraries itself.
+
+Both GPU archive types include the CPU backend. For an explicitly CPU-only child,
+set `GGML_VK_VISIBLE_DEVICES=''` (empty, not `-1`) for Vulkan or
+`CUDA_VISIBLE_DEVICES=''` for CUDA, together with `--device none -ngl 0` for llama,
+`--no-mmproj-offload` for CPU TTS, and `-ng` for Whisper/Parakeet. Vulkan still
+creates its instance and enumerates physical devices before applying visibility;
+the empty list prevents GPU device initialization, not loader enumeration. Scope
+these settings to the child: a router with mixed CPU/GPU presets cannot globally
+hide GPU devices. Per-model `device`, `gpu-layers`, `mmproj-offload` and `fit`
+settings belong in the INI file; CLI arguments override per-model presets.
+
+The upstream `sleep-idle-seconds` setting counts inactivity since use, excluding
+active inference. UI minutes zero must map to `-1` (disabled); upstream rejects
+zero. Positive minutes map to seconds. Sleep frees the model and its active KV
+context, and a new request reloads it. There is no separate KV-cache TTL setting;
+`cache-ram` is a MiB limit (zero disables, -1 unlimited), not a duration. Router
+capacity eviction can still unload an idle model even if sleeping is disabled.
 
 Upstream [Adreno subgroup fix](https://github.com/ggml-org/llama.cpp/issues/25734)
 and [Termux shader compiler report](https://github.com/ggml-org/llama.cpp/issues/28234)
@@ -99,6 +116,17 @@ with plain Q4_0 as well as Q4_K_M and Q8_0. A Q4_0 option is a compatibility cho
 not a promise that every phone driver supports the model.
 
 ## Current device verification
+
+The evidence below covers previous `c811cb8f0ac9` llama artifacts and released
+whisper v1.9.5. New exact-release `v0.6.0-r1` llama artifacts need separate execution
+validation; build success alone does not inherit these results.
+
+The published Android Vulkan llama archive from recipe `3926d9a0290d` also
+successfully generated coherent Qwen3.5 text on Cuttlefish with explicit CPU mode
+and empty Vulkan visibility. This confirms the GPU archive's included CPU backend
+works even when that guest's GPU compute device cannot initialize. The published
+Android Vulkan whisper archive also transcribed the JFK sample correctly with
+`-ng` and empty Vulkan visibility, exiting successfully.
 
 The native Linux x86_64 CPU and Vulkan builds transcribed speech, synthesized
 matching Pocket/Qwen3-TTS speech, and generated Qwen3.5 text. On stock Android 17

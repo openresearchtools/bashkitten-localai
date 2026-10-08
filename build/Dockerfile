@@ -6,7 +6,7 @@ COPY --from=node /usr/local/ /usr/local/
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg git build-essential gcc-14 g++-14 cmake ninja-build pkg-config python3 ccache libgomp1 libvulkan-dev glslc spirv-headers xz-utils unzip && rm -rf /var/lib/apt/lists/*
 ARG TARGETARCH
 ARG TARGETOS=linux
-ARG BACKEND=cpu
+ARG BACKEND=vulkan
 ENV CC=gcc-14 CXX=g++-14 CUDAHOSTCXX=g++-14
 RUN if [ "$BACKEND" = cuda ]; then \
     case "$TARGETARCH" in amd64) cuda_arch=x86_64;; arm64) cuda_arch=sbsa;; *) exit 1;; esac; \

@@ -13,7 +13,7 @@ import tarfile
 
 engine, backend, arch = (os.environ[name] for name in ('ENGINE', 'BACKEND', 'TARGETARCH'))
 target_os = os.environ.get('TARGETOS', 'linux')
-assert engine in ('llama', 'whisper') and backend in ('cpu', 'vulkan', 'cuda') and arch in ('amd64', 'arm64')
+assert engine in ('llama', 'whisper') and backend in ('vulkan', 'cuda') and arch in ('amd64', 'arm64')
 assert target_os in ('linux', 'android') and not (target_os == 'android' and backend == 'cuda')
 source = os.environ['SOURCE_COMMIT']
 assert re.fullmatch('[0-9a-f]{40}', source)
@@ -25,6 +25,14 @@ build = cache / 'build' / variant
 payload = cache / 'payload' / variant
 output = Path(os.environ.get('OUTPUT_DIR', '/out'))
 inputs = Path(os.environ.get('BUILD_INPUTS', '/build-inputs'))
+pin = json.loads((inputs / 'upstreams.json').read_text())[engine]
+assert source == pin['commit'] and os.environ['UPSTREAM_VERSION'] == pin['version']
+revision = pin['packageRevision']
+assert type(revision) is int and revision > 0
+release = ('android-' if target_os == 'android' else '') + f'{engine}-{pin["version"]}-r{revision}'
+assert os.environ['RELEASE_TAG'] == f'{engine}-{pin["version"]}-r{revision}'
+upstream_release = {'tag': pin['version'], 'commit': source, 'url': pin['releaseUrl'],
+                    'releaseId': pin['releaseId'], 'tagObject': pin['tagObject']}
 if payload.exists(): shutil.rmtree(payload)
 for directory in (payload / 'bin', output, build): directory.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault('CCACHE_DIR', str(cache / 'ccache'))
@@ -63,21 +71,22 @@ else:
     args += ['-DWHISPER_BUILD_TESTS=OFF', '-DWHISPER_BUILD_EXAMPLES=ON',
              '-DWHISPER_BUILD_SERVER=ON', '-DWHISPER_CURL=OFF']
 subprocess.run(args, check=True)
-capabilities = {}
+capabilities = {'cpu': True, 'executionBackends': ['cpu', backend]}
 if engine == 'llama':
     # Upstream disables this on Android by default. Termux can spawn native API
     # 28 processes; its persistent router must be able to start model children.
     assert 'LLAMA_SUBPROCESS:BOOL=ON' in (build / 'CMakeCache.txt').read_text().splitlines(), 'Router subprocess support is required'
     if target_os == 'android':
         assert '-DSUBPROCESS_SPAWN_VIA_FORK=1' in (build / 'build.ninja').read_text(), 'Termux needs the supported fork/exec implementation'
-    capabilities = {'subprocess': True, 'router': True,
-                    'subprocessImplementation': 'fork-exec' if target_os == 'android' else 'posix-spawn'}
+    capabilities.update(subprocess=True, router=True,
+                        subprocessImplementation='fork-exec' if target_os == 'android' else 'posix-spawn')
 subprocess.run(['cmake', '--build', str(build), '--parallel', str(jobs), '--target', *executables], check=True)
 for filename in (build / 'bin').iterdir():
     if filename.is_file() and (filename.name in executables or '.so' in filename.name):
         shutil.copy2(filename.resolve(), payload / 'bin' / filename.name)
 for executable in executables: assert (payload / 'bin' / executable).is_file(), executable
-if backend != 'cpu': assert (payload / 'bin' / ('libggml-' + backend + '.so')).is_file()
+assert (payload / 'bin' / ('libggml-' + backend + '.so')).is_file()
+assert list((payload / 'bin').glob('libggml-cpu*.so')), 'Every archive must include a CPU backend'
 if target_os == 'android':
     triple = 'x86_64-linux-android' if arch == 'amd64' else 'aarch64-linux-android'
     shutil.copy2(ndk / 'toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib' / triple / 'libc++_shared.so', payload / 'bin')
@@ -102,7 +111,8 @@ else:
         if result.returncode != expected:
             raise RuntimeError(f'{executable} startup failed: {result.stderr.decode(errors="replace")}')
 record = {'version': 1, 'engine': engine, 'upstreamVersion': os.environ['UPSTREAM_VERSION'], 'sourceCommit': source,
-          'os': target_os, 'arch': arch, 'backend': backend, 'release': os.environ['RELEASE_TAG'],
+          'os': target_os, 'arch': arch, 'backend': backend, 'release': release,
+          'packageRevision': revision, 'upstreamRelease': upstream_release,
           'cmake': args, 'builderCommit': os.environ['BUILDER_COMMIT'], 'executables': executables,
           'capabilities': capabilities,
           'recipeSHA256': {str(p.relative_to(inputs)): hashlib.file_digest(p.open('rb'), 'sha256').hexdigest()
@@ -113,7 +123,8 @@ record = {'version': 1, 'engine': engine, 'upstreamVersion': os.environ['UPSTREA
           'cudaRequirements': 'CUDA 13 compatible NVIDIA driver, libcudart and libcublas' if backend == 'cuda' else None}
 (payload / 'build.json').write_text(json.dumps(record, indent=2) + '\n')
 (payload / 'SOURCE.json').write_text(json.dumps({'repository': 'https://github.com/ggml-org/' + engine + '.cpp', 'commit': source,
-    'release': 'https://github.com/openresearchtools/bashkitten-localai/releases/tag/' + os.environ['RELEASE_TAG'],
+    'upstreamRelease': upstream_release,
+    'release': 'https://github.com/openresearchtools/bashkitten-localai/releases/tag/' + release,
     'build': 'https://github.com/openresearchtools/bashkitten-localai/tree/' + os.environ['BUILDER_COMMIT']}, indent=2) + '\n')
 if not (root / 'LICENSE').is_file(): raise RuntimeError('Upstream license is missing')
 notices = ['===== BashKitten build integration (AGPL-3.0-only) =====\n' + (inputs / 'LICENSE').read_text(),
@@ -130,7 +141,7 @@ for filename in sorted(root.rglob('*.h')):
         if 'Permission is hereby granted' in notice: notices.append('===== ' + str(filename.relative_to(root)) + ' =====\n' + notice)
 (payload / 'LICENSES.txt').write_text('\n\n'.join(notices))
 (payload / 'BUILD-PACKAGES.txt').write_text(subprocess.check_output(['dpkg-query', '-W', '-f=${Package}\t${Version}\n'], text=True))
-base = f'{engine}-{os.environ["UPSTREAM_VERSION"]}-{target_os}-{arch}-{backend}'
+base = f'{engine}-{pin["version"]}-r{revision}-{target_os}-{arch}-{backend}'
 archive = output / (base + '.tar.gz')
 with tarfile.open(archive, 'w:gz') as tar:
     for child in sorted(payload.iterdir()): tar.add(child, arcname=child.name)
@@ -139,7 +150,7 @@ with tarfile.open(source_archive, 'w:gz') as tar:
     tar.add(root, arcname='source', filter=lambda info: None if '/.git/' in info.name or info.name.endswith('/.git') else info)
     tar.add(inputs, arcname='build')
 sha = hashlib.file_digest(archive.open('rb'), 'sha256').hexdigest()
-entry = {key: record[key] for key in ('engine', 'os', 'arch', 'backend', 'sourceCommit')}
+entry = {key: record[key] for key in ('engine', 'os', 'arch', 'backend', 'sourceCommit', 'upstreamRelease', 'packageRevision')}
 entry.update(file=archive.name, sha256=sha, executable=engine + '-server', executables=executables,
              minimumAndroidApi=record['minimumAndroidApi'], capabilities=capabilities)
 (output / (base + '.json')).write_text(json.dumps(entry, indent=2) + '\n')

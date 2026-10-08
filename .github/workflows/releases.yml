@@ -1,0 +1,43 @@
+name: Check upstream stable releases daily
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: upstream-release-watch
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Resolve newer stable release tags
+        id: releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 build/releases.py --write
+      - name: Commit exact release pins
+        if: steps.releases.outputs.changed == 'true'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add upstreams.json
+          git commit -m 'Update pinned upstream stable releases'
+          git push origin HEAD:main
+      - name: Build only newly released engines
+        if: steps.releases.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENGINES: ${{ steps.releases.outputs.engines }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          for engine in json.loads(os.environ['ENGINES']):
+              subprocess.run(['gh', 'workflow', 'run', 'build.yml', '--ref', 'main',
+                              '-f', 'engine=' + engine, '-f', 'targets=all', '-f', 'publish=true'], check=True)
+          PY

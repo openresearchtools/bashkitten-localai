@@ -2,13 +2,16 @@
 
 ![Testing releases: current releases are for automated testing only. Not ready for production. Coming soon.](docs/testing-releases.svg)
 
-Pinned, unchanged mainstream llama.cpp and whisper.cpp runtimes. Linux amd64 and
-arm64 support CPU, Vulkan and CUDA; native Android/Termux aarch64 and x86_64 support
-CPU and Vulkan. Android artifacts use the NDK's Bionic ABI, not Linux glibc binaries.
+Unchanged stable upstream release sources for llama.cpp and whisper.cpp. Linux
+amd64 and arm64 provide Vulkan and CUDA archives; native Android/Termux aarch64
+and x86_64 provide Vulkan archives. **Every archive includes CPU execution**, so
+separate CPU downloads are unnecessary. Android uses the NDK's Bionic ABI.
 
-`upstreams.json` pins exact commits. Llama follows the verified 2026-10-08 mainstream
-commit after v0.6.0 for current mobile GPU fixes; whisper is v1.9.5. No fork or
-TurboQuant patch is applied. Model weights and GPU drivers are not bundled.
+`upstreams.json` records the stable release version, its annotated tag object, its
+peeled commit, release URL/ID and our integer package revision. Llama is v0.6.0;
+whisper is v1.9.5. The build verifies the actual release tag, not GitHub's
+`target_commitish` field. No fork or GPU workaround patch is applied. Model weights
+and GPU drivers are not bundled.
 
 Llama archives include `bin/llama-server`, `llama-cli`, `llama-tts`, and
 `llama-quantize`; whisper archives include `whisper-server`, `whisper-cli`,
@@ -16,37 +19,41 @@ Llama archives include `bin/llama-server`, `llama-cli`, `llama-tts`, and
 Parakeet uses its CLI, **not whisper-server**. Pocket TTS and Qwen3-TTS use
 llama.cpp's own `llama-tts`, not a similarly named third-party runtime.
 
-## Cached local builds
+## Release builds
 
-```sh
-./build/local.sh llama linux amd64 cpu
-./build/local.sh llama linux amd64 vulkan
-./build/local.sh llama linux amd64 cuda
-./build/local.sh llama android arm64 vulkan
-./build/local.sh whisper android amd64 cpu
-```
+All project runtime builds run in GitHub Actions. The full matrix is six archives
+per engine: Linux amd64/arm64 × Vulkan/CUDA, plus Android amd64/arm64 × Vulkan.
+Native Linux arm64 uses an arm64 runner; Android cross-compiles with pinned NDK
+r29, API 28. Execution in Termux uses neither QEMU nor proot.
 
-Run the same command for the other supported engine/platform/backend combinations.
-Native Linux arm64 builds run on Actions' arm64 worker. Android cross-compilation
-runs on amd64 using pinned Android NDK r29, API 28. No QEMU or proot is involved in
-running these binaries inside Termux.
+[The daily workflow](.github/workflows/releases.yml) checks upstream stable
+releases at 03:00 UTC. It verifies the current pinned tag has not moved, then
+updates and builds only a strictly newer semantic release. An unchanged version,
+a moved backwards `latest` pointer, or unrelated packaging commits do not trigger
+builds. Moved/recreated release tags fail verification instead of silently changing
+source. Build failures require inspection and an explicit manual retry.
 
-Local source, CMake trees, unlimited ccache, npm cache, artifacts and logs default to
-`/run/media/user/Data/BashkittenBuild/localai`. Set `BASHKITTEN_LOCALAI_WORK` to change
-this root. Local builds use CPUs 0–7, eight build jobs, active OpenMP waits and a
-40 GiB cap; override `BUILD_CPUS`, `BUILD_JOBS`, or `BUILD_MEMORY` as needed. Podman
-retains image layers and every build reuses its platform/backend CMake tree.
+For a packaging fix to the same upstream release, increment `packageRevision` in
+`upstreams.json`, commit it and manually dispatch `build.yml`. Revision 1 produces
+`llama-v0.6.0-r1` and `android-llama-v0.6.0-r1` (likewise whisper). Existing release
+tags cannot be overwritten; source SHA and recipe SHA remain in metadata rather
+than being used as user-facing version suffixes. `build/local.sh` remains an
+optional recipe entry point for other contributors; this project's runtime
+production and validation do not require local compilation.
 
-The Actions workflow also persists CMake/ccache/npm caches and builder layers.
-Every matrix job uploads its archive and complete source immediately; publishing
-is a workflow option after the full Linux/Android matrix or complete Android-only
-matrix succeeds. Desktop tags
-start with `llama-` or `whisper-`; native Android tags start with `android-llama-`
-or `android-whisper-`. Each published platform has its complete architecture and
-backend matrix, so a mobile release never displaces desktop downloads. Release assets
-contain manifest v1 with `os`, `arch`, `backend`, `sourceCommit`, `file`, `sha256`,
-`executable`, and `executables`. Android uses `os: android`, `arch: arm64|amd64` and
-`minimumAndroidApi: 28`. Rebuild under a new immutable tag.
+Actions persist CMake/ccache/npm caches and builder layers. Each matrix job uploads
+its archive and complete source immediately. Optional publication waits until the
+complete requested matrix passes. Desktop tags start with `llama-` or `whisper-`;
+Android tags start with `android-llama-` or `android-whisper-`, so one platform's
+release cannot displace another platform's downloads.
+
+Manifest v1 records `upstreamRelease` (`tag`, peeled `commit`, `url`, `releaseId`,
+`tagObject`) and integer `packageRevision`. Each artifact repeats that provenance
+and contains `os`, `arch`, `backend`, `sourceCommit`, `file`, `sha256`, `executable`,
+`executables`, plus `capabilities.cpu: true` and `executionBackends` inside
+`capabilities`. Android uses `os: android`, `arch: arm64|amd64`, `backend: vulkan`
+and `minimumAndroidApi: 28`. Payloads include full license notices, build metadata,
+and links to their corresponding source archives.
 
 Linux artifacts require glibc 2.39+, libstdc++6, libgcc-s1 and libgomp1. CUDA needs a
 CUDA 13 compatible NVIDIA driver and matching libcudart/libcublas. Vulkan needs a

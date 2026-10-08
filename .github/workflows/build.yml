@@ -1,4 +1,4 @@
-name: Build pinned LocalAI runtimes
+name: Build stable-release LocalAI runtimes
 on:
   workflow_dispatch:
     inputs:
@@ -19,7 +19,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: localai-${{ inputs.engine }}-${{ inputs.targets }}
+  group: localai-${{ inputs.engine }}
   cancel-in-progress: false
 jobs:
   source:
@@ -38,21 +38,30 @@ jobs:
           ENGINE: ${{ inputs.engine }}
           TARGETS: ${{ inputs.targets }}
           PUBLISH: ${{ inputs.publish }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          python3 build/releases.py --verify "$ENGINE"
           python3 - <<'PY'
-          import json, os
+          import json, os, sys
+          sys.path.insert(0, "build")
+          from releases import api
           pin = json.load(open('upstreams.json'))[os.environ['ENGINE']]
           targets = os.environ.get('TARGETS') or 'all'
           assert targets in ('all', 'android', 'linux-arm64', 'linux-amd64-android')
           assert os.environ['PUBLISH'] != 'true' or targets in ('all', 'android'), 'Publishing requires a complete platform release matrix'
           matrix = [{'os': system, 'arch': arch, 'backend': backend,
                      'runner': 'ubuntu-24.04-arm' if system == 'linux' and arch == 'arm64' else 'ubuntu-24.04'}
-                    for system in ('linux', 'android') for arch in ('amd64', 'arm64') for backend in ('cpu', 'vulkan', 'cuda')
+                    for system in ('linux', 'android') for arch in ('amd64', 'arm64') for backend in ('vulkan', 'cuda')
                     if (system == 'linux' or backend != 'cuda') and (targets == 'all' or (targets == 'android' and system == 'android') or (targets == 'linux-arm64' and (system, arch) == ('linux', 'arm64')) or (targets == 'linux-amd64-android' and (system, arch) != ('linux', 'arm64')))]
+          release = os.environ['ENGINE'] + '-' + pin['version'] + '-r' + str(pin['packageRevision'])
+          if os.environ['PUBLISH'] == 'true':
+              for platform in (['android'] if targets == 'android' else ['linux', 'android']):
+                  tag = ('android-' if platform == 'android' else '') + release
+                  assert api('repos/' + os.environ['GITHUB_REPOSITORY'] + '/releases/tags/' + tag, missing=True) is None, 'Release already exists: ' + tag + '; use an explicit new packageRevision for a recipe fix'
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
               for name in ('commit', 'version', 'repository'):
                   print(name + '=' + pin[name], file=out)
-              print('release=' + os.environ['ENGINE'] + '-' + pin['version'] + '-' + os.environ['GITHUB_SHA'][:12], file=out)
+              print('release=' + release, file=out)
               print('matrix=' + json.dumps({'include': matrix}), file=out)
               print('platforms=' + json.dumps(['android'] if targets == 'android' else ['linux', 'android']), file=out)
           PY
@@ -95,7 +104,7 @@ jobs:
             --cache-to type=gha,mode=max,scope=builder-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }} \
             -f build/Dockerfile .
           mkdir -p .localai-cache .localai-recipe artifacts
-          cp build/{Dockerfile,package.py,local.sh,termux.cmake,DONOR-LICENSE} LICENSE upstreams.json .localai-recipe/
+          cp build/{Dockerfile,package.py,releases.py,local.sh,termux.cmake,DONOR-LICENSE} LICENSE upstreams.json .localai-recipe/
           docker run --rm --user "$(id -u):$(id -g)" \
             -e ENGINE -e BACKEND -e TARGETOS -e TARGETARCH -e SOURCE_COMMIT -e UPSTREAM_VERSION -e RELEASE_TAG -e BUILDER_COMMIT \
             -e BUILD_JOBS="$(nproc)" -e OMP_WAIT_POLICY=ACTIVE -e GOMP_SPINCOUNT=INFINITE \
@@ -137,14 +146,20 @@ jobs:
           import hashlib,json,os,pathlib
           root=pathlib.Path('artifacts')
           entries=[json.loads(p.read_text()) for p in root.glob('*.json')]
-          expected={(os.environ['TARGETOS'],a,b) for a in ('arm64','amd64') for b in ('cpu','vulkan','cuda') if os.environ['TARGETOS']=='linux' or b!='cuda'}
+          pin=json.load(open('upstreams.json'))[os.environ['ENGINE']]
+          upstream={'tag':pin['version'],'commit':pin['commit'],'url':pin['releaseUrl'],
+                    'releaseId':pin['releaseId'],'tagObject':pin['tagObject']}
+          expected={(os.environ['TARGETOS'],a,b) for a in ('arm64','amd64') for b in ('vulkan','cuda') if os.environ['TARGETOS']=='linux' or b!='cuda'}
           assert len(entries)==len(expected) and {(e['os'],e['arch'],e['backend']) for e in entries} == expected
           for e in entries:
               assert e['sourceCommit']==os.environ['SOURCE_COMMIT'] and e['engine']==os.environ['ENGINE']
-              assert e['engine'] != 'llama' or e.get('capabilities', {}).get('router') is True
+              assert e['upstreamRelease']==upstream and e['packageRevision']==pin['packageRevision']
+              assert e.get('capabilities', {}).get('cpu') is True
+              assert e['engine'] != 'llama' or (e['capabilities'].get('router') is True and e['capabilities'].get('subprocess') is True)
               assert hashlib.file_digest((root/e['file']).open('rb'),'sha256').hexdigest()==e['sha256']
           manifest={'version':1,'engine':os.environ['ENGINE'],'release':os.environ['RELEASE_TAG'],
-              'upstreamVersion':os.environ['UPSTREAM_VERSION'],'sourceCommit':os.environ['SOURCE_COMMIT'],'artifacts':entries}
+              'upstreamVersion':os.environ['UPSTREAM_VERSION'],'sourceCommit':os.environ['SOURCE_COMMIT'],
+              'upstreamRelease':upstream,'packageRevision':pin['packageRevision'],'artifacts':entries}
           (root/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
           with (root/'SHA256SUMS').open('w') as out:
               for p in sorted(root.iterdir()):
@@ -156,4 +171,4 @@ jobs:
           RELEASE_TAG: ${{ matrix.platform == 'android' && format('android-{0}', needs.source.outputs.release) || needs.source.outputs.release }}
           ENGINE: ${{ inputs.engine }}
         run: |
-          gh release create "$RELEASE_TAG" artifacts/* --title "$ENGINE native runtimes" --prerelease --latest=false --notes-file release-notes.md
+          gh release create "$RELEASE_TAG" artifacts/* --title "$RELEASE_TAG native runtimes" --prerelease --latest=false --notes-file release-notes.md
