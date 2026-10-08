@@ -171,4 +171,4 @@ jobs:
           RELEASE_TAG: ${{ matrix.platform == 'android' && format('android-{0}', needs.source.outputs.release) || needs.source.outputs.release }}
           ENGINE: ${{ inputs.engine }}
         run: |
-          gh release create "$RELEASE_TAG" artifacts/* --title "$RELEASE_TAG native runtimes" --prerelease --latest=false --notes-file release-notes.md
+          gh release create "$RELEASE_TAG" artifacts/* --target "$GITHUB_SHA" --title "$RELEASE_TAG native runtimes" --prerelease --latest=false --notes-file release-notes.md
