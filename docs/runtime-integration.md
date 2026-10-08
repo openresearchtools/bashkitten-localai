@@ -136,8 +136,13 @@ mode (`device=none`, `gpu-layers=0`) with normal GPU visibility. Its native rout
 also loaded that model from an INI, spawned its child and returned the correct
 answer through `/v1/chat/completions`; both processes exited after the check.
 The published Android x86_64 Vulkan `v1.9.5-r1` whisper artifact transcribed the
-upstream JFK sample correctly with `-ng` and empty Vulkan visibility. These checks
-use the new release bytes, not an earlier build with similar version text.
+upstream JFK sample correctly with `-ng` and empty Vulkan visibility. A repeat
+under the Termux UID used two CPU threads, completed in 3.7 seconds and left no
+CLI process. All 24 installed binaries/libraries matched the published archive
+(SHA256 `dc3a224889214470d2f86950cff8410eda5b615e4948dd814ba8036f1a962bc2`).
+No Parakeet model was present in the guest, so Android Parakeet inference remains
+unverified. These checks use the new release bytes, not an earlier build with
+similar version text; they do not verify microphone or application UI behavior.
 
 The published Android x86_64 `v0.6.0-r1` Vulkan bundle also generated speech
 with Pocket F16 and Qwen3-TTS 1.7B Q4_K_M under the Termux UID on Android 17
