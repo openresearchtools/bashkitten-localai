@@ -139,6 +139,17 @@ The published Android x86_64 Vulkan `v1.9.5-r1` whisper artifact transcribed the
 upstream JFK sample correctly with `-ng` and empty Vulkan visibility. These checks
 use the new release bytes, not an earlier build with similar version text.
 
+The published Android x86_64 `v0.6.0-r1` Vulkan bundle also generated speech
+with Pocket F16 and Qwen3-TTS 1.7B Q4_K_M under the Termux UID on Android 17
+Cuttlefish. All 28 installed binary/library files matched the public archive.
+Both stock `llama-tts` commands used explicit CPU mode (`--device none -ngl 0`,
+empty `GGML_VK_VISIBLE_DEVICES`, two threads), exited successfully and left no
+TTS process. They produced non-silent mono 24 kHz audio lasting 2.48 and 2.88
+seconds respectively. Stock Whisper transcribed both as “The local speech
+engine is ready.” The checks reused public models and the upstream JFK voice
+sample without changing the active router or application configuration. This is
+native-runtime verification, not LocalAI UI or physical-device GPU acceptance.
+
 The exact published Linux amd64 CUDA `v0.6.0-r1` and `v1.9.5-r1` archives also
 passed stock-binary inference checks on the RTX 5090 Laptop GPU. Qwen3.5 0.8B
 Q4_0 returned “Two plus two equals four.” with all 25 layers on CUDA. Its router
