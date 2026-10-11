@@ -11,6 +11,7 @@ esac
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 work=${BASHKITTEN_LOCALAI_WORK:-/run/media/user/Data/BashkittenBuild/localai}
 python3 "$repo/build/releases.py" --verify "$engine"
+if [[ "$engine" = whisper ]]; then python3 "$repo/build/vad/verify.py" --reproduce; fi
 mkdir -p "$work"/{cache,sources,artifacts,logs}
 readarray -t pin < <(python3 - "$repo/upstreams.json" "$engine" <<'PY'
 import json,sys
@@ -29,7 +30,9 @@ builder_commit=$(git -C "$repo" rev-parse HEAD)
 recipe_hash=$(python3 - "$repo" <<'PYHASH'
 import hashlib,pathlib,sys
 root=pathlib.Path(sys.argv[1]);h=hashlib.sha256()
-for name in ['build/Dockerfile','build/package.py','build/releases.py','build/local.sh','build/termux.cmake','build/DONOR-LICENSE','LICENSE','upstreams.json']:
+names=['build/Dockerfile','build/package.py','build/releases.py','build/local.sh','build/termux.cmake','build/vad.cmake','build/DONOR-LICENSE','LICENSE','upstreams.json']
+names += [str(p.relative_to(root)) for p in sorted((root/'build/vad').rglob('*')) if p.is_file()]
+for name in names:
  h.update(name.encode());h.update((root/name).read_bytes())
 print(h.hexdigest())
 PYHASH
@@ -38,7 +41,8 @@ mkdir -p "$work/recipes"
 recipe="$work/recipes/$recipe_hash"
 if [[ ! -d "$recipe" ]]; then
   staging=$(mktemp -d "$work/recipes/.staging.XXXXXX")
-  cp "$repo/build/"{Dockerfile,package.py,releases.py,local.sh,termux.cmake,DONOR-LICENSE} "$repo/"{LICENSE,upstreams.json} "$staging/"
+  cp "$repo/build/"{Dockerfile,package.py,releases.py,local.sh,termux.cmake,vad.cmake,DONOR-LICENSE} "$repo/"{LICENSE,upstreams.json} "$staging/"
+  cp -a "$repo/build/vad" "$staging/"
   if ! mv -T "$staging" "$recipe" 2>/dev/null; then rm -r "$staging"; fi
 fi
 image="localhost/bashkitten-localai-$os-$backend:builder"

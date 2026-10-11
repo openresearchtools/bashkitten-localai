@@ -10,8 +10,9 @@ separate CPU downloads are unnecessary. Android uses the NDK's Bionic ABI.
 `upstreams.json` records the stable release version, its annotated tag object, its
 peeled commit, release URL/ID and our integer package revision. Llama is v0.6.0;
 whisper is v1.9.5. The build verifies the actual release tag, not GitHub's
-`target_commitish` field. No fork or GPU workaround patch is applied. Model weights
-and GPU drivers are not bundled.
+`target_commitish` field. No fork or GPU workaround patch is applied. User-selected language, transcription and speech models and GPU drivers are not
+bundled. Whisper r2 additionally includes the small, pinned Silero VAD model for
+streaming speech activity detection; see [source and conversion](build/vad/README.md).
 
 **Text to speech is included in every llama archive as `bin/llama-tts`.** It is
 built from the same official llama.cpp release as the router; it is not a separate
@@ -19,7 +20,7 @@ repository or download. Pocket TTS and Qwen3-TTS model files remain separate.
 
 Llama archives include `bin/llama-server`, `llama-cli`, `llama-tts`, and
 `llama-quantize`; whisper archives include `whisper-server`, `whisper-cli`,
-`parakeet-cli`, and `parakeet-quantize`. Shared libraries live beside executables.
+`parakeet-cli`, `parakeet-quantize`, and `bashkitten-vad`. Shared libraries live beside executables.
 Parakeet uses its CLI, **not whisper-server**. Pocket TTS and Qwen3-TTS use
 llama.cpp's own `llama-tts`, not a similarly named third-party runtime.
 
@@ -55,7 +56,8 @@ Manifest v1 records `upstreamRelease` (`tag`, peeled `commit`, `url`, `releaseId
 `tagObject`) and integer `packageRevision`. Each artifact repeats that provenance
 and contains `os`, `arch`, `backend`, `sourceCommit`, `file`, `sha256`, `executable`,
 `executables`, plus `capabilities.cpu: true` and `executionBackends` inside
-`capabilities`. Android uses `os: android`, `arch: arm64|amd64`, `backend: vulkan`
+`capabilities`. Whisper adds `streamingVad: true` and a `vad` source/model record.
+Android uses `os: android`, `arch: arm64|amd64`, `backend: vulkan`
 and `minimumAndroidApi: 28`. Payloads include full license notices, build metadata,
 and links to their corresponding source archives.
 

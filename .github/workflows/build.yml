@@ -33,6 +33,12 @@ jobs:
       platforms: ${{ steps.pin.outputs.platforms }}
     steps:
       - uses: actions/checkout@v6
+      - name: Verify exact Silero model conversion
+        if: ${{ inputs.engine == 'whisper' }}
+        run: |
+          python3 -m venv .vad-verify
+          .vad-verify/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch==2.9.1+cpu numpy==2.3.5
+          .vad-verify/bin/python build/vad/verify.py --reproduce
       - id: pin
         env:
           ENGINE: ${{ inputs.engine }}
@@ -106,7 +112,8 @@ jobs:
             --cache-to type=gha,mode=max,scope=builder-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }} \
             -f build/Dockerfile .
           mkdir -p .localai-cache .localai-recipe artifacts
-          cp build/{Dockerfile,package.py,releases.py,local.sh,termux.cmake,DONOR-LICENSE} LICENSE upstreams.json .localai-recipe/
+          cp build/{Dockerfile,package.py,releases.py,local.sh,termux.cmake,vad.cmake,DONOR-LICENSE} LICENSE upstreams.json .localai-recipe/
+          cp -a build/vad .localai-recipe/
           docker run --rm --user "$(id -u):$(id -g)" \
             -e ENGINE -e BACKEND -e TARGETOS -e TARGETARCH -e SOURCE_COMMIT -e UPSTREAM_VERSION -e RELEASE_TAG -e BUILDER_COMMIT \
             -e BUILD_JOBS="$(nproc)" -e OMP_WAIT_POLICY=ACTIVE -e GOMP_SPINCOUNT=INFINITE \
@@ -158,6 +165,10 @@ jobs:
               assert e['upstreamRelease']==upstream and e['packageRevision']==pin['packageRevision']
               assert e.get('capabilities', {}).get('cpu') is True
               assert e['engine'] != 'llama' or (e['capabilities'].get('router') is True and e['capabilities'].get('subprocess') is True)
+              if e['engine'] == 'whisper':
+                  assert e['capabilities'].get('streamingVad') is True and 'bashkitten-vad' in e['executables']
+                  expected_vad=json.load(open('build/vad/SOURCE.json'))
+                  assert e['vad'] == {k:expected_vad[k] for k in ('silero','converter','model')}
               assert hashlib.file_digest((root/e['file']).open('rb'),'sha256').hexdigest()==e['sha256']
           manifest={'version':1,'engine':os.environ['ENGINE'],'release':os.environ['RELEASE_TAG'],
               'upstreamVersion':os.environ['UPSTREAM_VERSION'],'sourceCommit':os.environ['SOURCE_COMMIT'],

@@ -9,6 +9,7 @@ import re
 import shutil
 import struct
 import subprocess
+import sys
 import tarfile
 
 engine, backend, arch = (os.environ[name] for name in ('ENGINE', 'BACKEND', 'TARGETARCH'))
@@ -67,11 +68,19 @@ if engine == 'llama':
     if target_os == 'android':
         args += ['-DCMAKE_PROJECT_INCLUDE=' + str(inputs / 'termux.cmake')]
 else:
-    executables = ['whisper-server', 'whisper-cli', 'parakeet-cli', 'parakeet-quantize']
+    executables = ['whisper-server', 'whisper-cli', 'parakeet-cli', 'parakeet-quantize', 'bashkitten-vad']
+    subprocess.run([sys.executable, str(inputs / 'vad/verify.py')], check=True)
+    vad = json.loads((inputs / 'vad/SOURCE.json').read_text())
     args += ['-DWHISPER_BUILD_TESTS=OFF', '-DWHISPER_BUILD_EXAMPLES=ON',
-             '-DWHISPER_BUILD_SERVER=ON', '-DWHISPER_CURL=OFF']
+             '-DWHISPER_BUILD_SERVER=ON', '-DWHISPER_CURL=OFF',
+             '-DCMAKE_PROJECT_INCLUDE=' + str(inputs / 'vad.cmake')]
 subprocess.run(args, check=True)
 capabilities = {'cpu': True, 'executionBackends': ['cpu', backend]}
+if engine == 'whisper':
+    capabilities['streamingVad'] = True
+    (payload / 'models').mkdir()
+    shutil.copy2(inputs / 'vad' / vad['model']['file'], payload / vad['model']['file'])
+    shutil.copy2(inputs / 'vad/SOURCE.json', payload / 'models/VAD-SOURCE.json')
 if engine == 'llama':
     # Upstream disables this on Android by default. Termux can spawn native API
     # 28 processes; its persistent router must be able to start model children.
@@ -110,6 +119,13 @@ else:
         expected = 1 if executable.endswith('-quantize') else 0
         if result.returncode != expected:
             raise RuntimeError(f'{executable} startup failed: {result.stderr.decode(errors="replace")}')
+    if engine == 'whisper':
+        command = [str(payload / 'bin/bashkitten-vad'), str(payload / vad['model']['file'])]
+        result = subprocess.run(command, input=bytes(2048), capture_output=True, timeout=60)
+        assert result.returncode == 0 and result.stdout[:6] == b'READY\n' and len(result.stdout) == 14, 'VAD streaming protocol failed'
+        assert all(0 <= p <= 1 for p in struct.unpack('<ff', result.stdout[6:])), 'Invalid VAD probability'
+        partial = subprocess.run(command, input=b'\x00', capture_output=True, timeout=60)
+        assert partial.returncode != 0, 'VAD must reject a partial PCM frame'
 record = {'version': 1, 'engine': engine, 'upstreamVersion': os.environ['UPSTREAM_VERSION'], 'sourceCommit': source,
           'os': target_os, 'arch': arch, 'backend': backend, 'release': release,
           'packageRevision': revision, 'upstreamRelease': upstream_release,
@@ -121,6 +137,8 @@ record = {'version': 1, 'engine': engine, 'upstreamVersion': os.environ['UPSTREA
           'minimumAndroidApi': 28 if target_os == 'android' else None,
           'systemPackages': (['libc6', 'libstdc++6', 'libgcc-s1', 'libgomp1'] + (['libvulkan1'] if backend == 'vulkan' else [])) if target_os == 'linux' else [],
           'cudaRequirements': 'CUDA 13 compatible NVIDIA driver, libcudart and libcublas' if backend == 'cuda' else None}
+if engine == 'whisper':
+    record['vad'] = {key: vad[key] for key in ('silero', 'converter', 'model')}
 (payload / 'build.json').write_text(json.dumps(record, indent=2) + '\n')
 (payload / 'SOURCE.json').write_text(json.dumps({'repository': 'https://github.com/ggml-org/' + engine + '.cpp', 'commit': source,
     'upstreamRelease': upstream_release,
@@ -139,6 +157,9 @@ for filename in sorted(root.rglob('*.h')):
     if '.git' in filename.parts or not filename.is_file(): continue
     for notice in re.findall(r'/\*[\s\S]*?\*/', filename.read_text(errors='replace')):
         if 'Permission is hereby granted' in notice: notices.append('===== ' + str(filename.relative_to(root)) + ' =====\n' + notice)
+if engine == 'whisper':
+    for name in ('SILERO-LICENSE', 'upstream/whisper/LICENSE'):
+        notices.append('===== VAD ' + name + ' =====\n' + (inputs / 'vad' / name).read_text())
 (payload / 'LICENSES.txt').write_text('\n\n'.join(notices))
 (payload / 'BUILD-PACKAGES.txt').write_text(subprocess.check_output(['dpkg-query', '-W', '-f=${Package}\t${Version}\n'], text=True))
 base = f'{engine}-{pin["version"]}-r{revision}-{target_os}-{arch}-{backend}'
@@ -153,5 +174,7 @@ sha = hashlib.file_digest(archive.open('rb'), 'sha256').hexdigest()
 entry = {key: record[key] for key in ('engine', 'os', 'arch', 'backend', 'sourceCommit', 'upstreamRelease', 'packageRevision')}
 entry.update(file=archive.name, sha256=sha, executable=engine + '-server', executables=executables,
              minimumAndroidApi=record['minimumAndroidApi'], capabilities=capabilities)
+if engine == 'whisper':
+    entry['vad'] = record['vad']
 (output / (base + '.json')).write_text(json.dumps(entry, indent=2) + '\n')
 print(json.dumps(entry))

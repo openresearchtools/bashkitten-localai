@@ -79,6 +79,19 @@ The CLI can return success after an audio error, so an empty result must not be
 silently sent. `ggml-org/parakeet-GGUF` publishes Q4_0, Q4_K, Q8_0 and F16 files;
 these are the whisper.cpp format despite the repository's GGUF name.
 
+### Streaming voice activity
+
+Whisper r2 packages `bin/bashkitten-vad` and
+`models/ggml-silero-v6.2.0.bin`. The helper uses the public persistent-state VAD
+API on one CPU thread, independently of the Whisper/Parakeet transcription
+backend. Wait for `READY\n`, then feed mono 16 kHz PCM16LE in 512-sample frames;
+read one float32LE probability per frame. Close stdin or terminate the owned
+child when capture ends. Audio stays in pipes and memory; no files are created.
+Applications must check `capabilities.streamingVad`, the executable list and
+`vad.model` metadata. Old Whisper r1 packages do not have this helper; show a
+runtime update requirement instead of inferring silence or substituting an engine.
+See [VAD provenance](../build/vad/README.md) for exact reproduction and precision.
+
 ## Speech synthesis
 
 `llama-tts` is a command-line synthesizer, not a server and not `/v1/audio/speech`.
