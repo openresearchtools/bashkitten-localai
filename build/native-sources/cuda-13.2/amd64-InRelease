@@ -1,0 +1,33 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
+
+Origin: NVIDIA
+Label: NVIDIA CUDA
+Architecture: x86_64
+Date: Mon, 19 Oct 2026 08:03:00 +0000
+MD5Sum:
+ 8b5c055c9bbae1fa69aa5d225b22bad2                                          8045582 Packages
+ 39e62923d2d8ed3b287f625adf908bf1                                          1934160 Packages.gz
+SHA1:
+ e1f101bd03640701d4a4d4abc40235740bc652d4                                  8045582 Packages
+ ae517d2440ea972374fa8d941740d5110e0bb6a9                                  1934160 Packages.gz
+SHA256:
+ 4454ee49760311c655999beec127aeea30a2619c86ce4369e3dd14e01295499a          8045582 Packages
+ ace6fab32f0e4f005f78d2cdc0645c91707be7bf14a4c7f734f92a12cdd1407d          1934160 Packages.gz
+Acquire-By-Hash: no
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEE62k7MDXNVxDiMeEjpLRpljv4Y8wFAmrV1RUACgkQpLRpljv4
+Y8xBWg/8CobXQbrDAXwGBUNJ7X6XzUWqwFYyrlw9mmVU/XI5AEVEghgFT7RjMbgH
+QYTQRirMURXNJg4cFmrh4cSVHMHicfYLmR3zCrmI0bj1FRRlB/HKlMCKLfIqCmbz
+WrTu3VP9CQdQsIRFtTgZaDlkQcXKZIbQJlY9KgSX+Ssjk10Ds77UzbyAAsujXObC
+FF4s2bOQm94VDNyIwaUJicXkKBpczdNa20qXu3PyIZk75D1Z+Oby5tP6DbX+LaDR
+tBNkGlbcUZG0K4crkgbg2JawDIuVoB21vSzqCNcbEO354NP2PBg3TTuF1GhRNJV/
+R/uFpe2h8p7+X3uzAtT2y/WBuFsw5PT71pe7Za1KiVVtDUOQgGGu418XfOHSeo6N
+zZVAjTPO78eS0dMFIHaDAcFHOxAIjQ56R7NvbIc3fcg+1mS6sVie8b7vLidoU4ty
+mNMP9EGzIjkevqZhexXt7Xqc79oD6rA7gqnUKbyES8gRd89NCF8///OFJ/fqRSOn
+ovNEf54Oe+cWfwMyjazjyDG1vrhYZw5r+kK4B/lEFnM7Vh36urQcsyNDnUeewLxe
+RNFyBCBQOJMxPGagTSIECCxrKqDe/bvDcfW4w08p3uFBvgK0d0auNrVKAY01x+tv
+iZKjlfkt1thiJGrVz49CdW9FdeXILdXJWVx6EnKkJtYDhaTJmU0=
+=AqJw
+-----END PGP SIGNATURE-----
