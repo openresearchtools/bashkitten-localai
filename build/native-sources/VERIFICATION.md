@@ -162,3 +162,23 @@ checks pass. Both retained libnvvm notices exactly match the complete CUDA
 license already emitted in runtime packages. Android amd64 Vulkan job
 `118330259748` subsequently succeeded; both CUDA jobs were still running at the
 last bounded snapshot. This is not a replacement native build or installed test.
+
+
+## Llama v0.7.0 implementation-library classification
+
+Testing-release run `39332956559` at `335d40b0`, Linux arm64 Vulkan job
+`118335501164`, completed compilation and failed packaging on
+`libllama-cli-impl.so`. The retained commands identify this and
+`libllama-server-impl.so` / `libllama-quantize-impl.so` as the pinned upstream
+`tools/cli`, `tools/server` and `tools/quantize` implementation targets. The
+classifier now admits these three exact names; it still rejects unknown
+implementation libraries. No source exception, GPU option or dependency changed.
+
+All 21 maps from diagnostics artifact `12225771010` were replayed through the
+existing static-source classifier, relocating only the CI build-root prefix.
+All 56 archive-member records classify as engine source, retained GCC 14 or
+glibc; no new unknown native-source input was found. Nine tests, Python syntax
+and whitespace checks pass. Replay evidence and the original log/maps remain
+in the existing acceptance `daughter-artifacts/llama-linux-arm64-vulkan-335/`
+directory. This verifies classification, not a local engine build or runtime
+acceptance. No CI run was dispatched or cancelled for the correction.

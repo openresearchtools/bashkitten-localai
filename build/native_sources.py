@@ -119,7 +119,7 @@ def native_notices(inputs, record):
 
 def audit_libraries(binary_dir, executables, target_os, backend, readelf):
     bundled = {p.name for p in binary_dir.iterdir() if p.is_file()}
-    engine_library = r'lib(?:ggml(?:-[\w.-]+)?|whisper|parakeet|llama(?:-common)?|mtmd|common)\.so(?:\.\d+)*'
+    engine_library = r'lib(?:ggml(?:-[\w.-]+)?|whisper|parakeet|llama(?:-common|-(?:cli|server|quantize)-impl)?|mtmd|common)\.so(?:\.\d+)*'
     for name in bundled - set(executables):
         if not re.fullmatch(engine_library, name) and not (target_os == 'android' and name == 'libc++_shared.so'):
             raise RuntimeError(f'Unmapped bundled native library: {name}')

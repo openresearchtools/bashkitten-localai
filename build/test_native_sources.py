@@ -62,6 +62,18 @@ class SourceGates(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'Unmapped bundled'):
                 audit_libraries(root, [], 'linux', 'vulkan', 'readelf')
 
+    def test_upstream_llama_tool_implementation_libraries_are_classified(self):
+        # v0.7.0 tools build these DSOs for the selected CLI/server/quantize targets.
+        names = ['libllama-cli-impl.so', 'libllama-server-impl.so', 'libllama-quantize-impl.so']
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            for name in names: (root / name).write_bytes(b'ELF fixture')
+            with patch('native_sources.subprocess.check_output', return_value='(NEEDED) Shared library: [libc.so.6]'):
+                self.assertEqual(set(audit_libraries(root, [], 'linux', 'vulkan', 'readelf')), set(names))
+            (root / 'libllama-unrecognized-impl.so').write_bytes(b'unknown')
+            with self.assertRaisesRegex(RuntimeError, 'Unmapped bundled'):
+                audit_libraries(root, [], 'linux', 'vulkan', 'readelf')
+
     def test_cuda_binary_authorization_does_not_claim_full_original_source(self):
         pin = json.loads((Path(__file__).parent / 'native-sources/cuda-13.2/SOURCE.json').read_text())
         cuda = describe_source_closure({'cuda': {'provenance': pin}})
