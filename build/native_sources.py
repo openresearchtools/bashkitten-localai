@@ -53,21 +53,32 @@ def verify_ubuntu(root, target_os, backend, query_packages=True):
 def verify_cuda(root, arch, query_packages=True):
     record = verify_inventory(root)
     pin = json.loads((root / 'SOURCE.json').read_text())
+    binary_inputs = {}
+    for package in pin['packages'][arch].values():
+        binary_inputs.update({'/' + name: item for name, item in package.get('binaryInputs', {}).items()})
     if query_packages:
         for name, package in pin['packages'][arch].items():
             actual = subprocess.check_output(['dpkg-query', '-W', '-f=${Version}', name], text=True)
             if actual != package['version']:
-                raise RuntimeError(f'{name}: installed {actual} differs from retained CUDA headers {package["version"]}')
+                raise RuntimeError(f'{name}: installed {actual} differs from retained CUDA inputs {package["version"]}')
             for filename, digest in package['retainedFiles'].items():
                 if sha256(Path('/') / filename) != digest:
-                    raise RuntimeError(f'Installed CUDA header/license differs from retained source: {filename}')
+                    raise RuntimeError(f'Installed CUDA input/license differs from retained source: {filename}')
+        for filename, item in binary_inputs.items():
+            if sha256(Path(filename)) != item['sha256']:
+                raise RuntimeError(f'Installed CUDA binary input differs from its package provenance: {filename}')
+    record['binaryInputs'] = binary_inputs
     record['provenance'] = pin
     return record
 
 
-def audit_cuda_device_link(commands):
-    if re.search(r'(?:^|\s)(?:-dlink|--device-link|--relocatable-device-code=true|-rdc=true)(?:\s|$)', commands):
-        raise RuntimeError('CUDA device-link/RDC stage needs a separate static device-runtime incorporation audit; host maps are insufficient')
+def describe_source_closure(record):
+    closure = {'status': 'verified-retained-native-inputs',
+               'retainedSourcesVerified': True, 'hostStaticLinkageVerified': True}
+    if 'cuda' in record:
+        closure['status'] = 'verified-with-nvidia-binary-components'
+        closure['nvidiaBinaryComponents'] = record['cuda']['provenance']['nvidiaBinaryComponents']
+    return closure
 
 
 def verify_sources(inputs, target_os, arch, backend, ndk=None, query_packages=True):
@@ -101,13 +112,14 @@ def native_notices(inputs, record):
             for name, spec in record['ubuntu'].items()]
     if 'cuda' in record:
         for name in ('CUDA-LICENSE.txt', 'CCCL-LICENSES.txt'):
-            notices.append('===== CUDA compiler/header ' + name + ' =====\n' + (inputs / 'native-sources/cuda-13.2' / name).read_text())
+            notices.append('===== NVIDIA CUDA component ' + name + ' =====\n' + (inputs / 'native-sources/cuda-13.2' / name).read_text())
+        notices.append('NVIDIA libdevice and compiler/runtime implementation code retain the NVIDIA CUDA license, not MIT. Original implementation source is unavailable; retained bitcode and exact package/input hashes are identified in build/native-sources/cuda-13.2/SOURCE.json. CUDA driver, cudart and cuBLAS DSOs remain external prerequisites.')
     return notices
 
 
 def audit_libraries(binary_dir, executables, target_os, backend, readelf):
     bundled = {p.name for p in binary_dir.iterdir() if p.is_file()}
-    engine_library = r'lib(?:ggml(?:-[\w-]+)?|whisper|parakeet|llama(?:-common)?|mtmd|common)\.so(?:\.\d+)*'
+    engine_library = r'lib(?:ggml(?:-[\w.-]+)?|whisper|parakeet|llama(?:-common)?|mtmd|common)\.so(?:\.\d+)*'
     for name in bundled - set(executables):
         if not re.fullmatch(engine_library, name) and not (target_os == 'android' and name == 'libc++_shared.so'):
             raise RuntimeError(f'Unmapped bundled native library: {name}')
@@ -129,7 +141,7 @@ def audit_libraries(binary_dir, executables, target_os, backend, readelf):
     return result
 
 
-def audit_static_maps(build, binary_dir, target_os, ndk=None):
+def audit_static_maps(build, binary_dir, target_os, ndk=None, cuda_inputs=None):
     result = {}
     for binary in sorted(binary_dir.iterdir()):
         if not binary.is_file() or binary.name == 'libc++_shared.so':
@@ -154,6 +166,8 @@ def audit_static_maps(build, binary_dir, target_os, ndk=None):
                 source = 'android-r29'
             elif target_os == 'linux' and re.fullmatch(r'lib(?:gcc(?:_eh)?|stdc\+\+|supc\+\+|gomp)\.a', path.name) and str(resolved).startswith('/usr/lib/gcc/') and '/14/' in str(resolved):
                 source = 'gcc-14'
+            elif cuda_inputs and str(resolved) in cuda_inputs and cuda_inputs[str(resolved)]['kind'] == 'static-runtime':
+                source = 'nvidia-cuda-13.2-binary'
             elif target_os == 'linux' and path.name in ('libc_nonshared.a', 'libpthread_nonshared.a') and str(resolved).startswith('/usr/lib/'):
                 source = 'glibc'
             else:

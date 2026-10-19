@@ -188,7 +188,11 @@ jobs:
               assert hashlib.file_digest((root/e['file']).open('rb'),'sha256').hexdigest()==e['sha256']
               assert e['sourceFile'] == e['file'].removesuffix('.tar.gz') + '-source.tar.gz'
               assert hashlib.file_digest((root/e['sourceFile']).open('rb'),'sha256').hexdigest()==e['sourceSHA256']
-              assert e['correspondingSourcesVerified'] is True and e['hostStaticLinkageVerified'] is True
+              assert e['sourcePolicyVerified'] is True and e['hostStaticLinkageVerified'] is True
+              assert e['correspondingSourcesVerified'] is (e['backend'] != 'cuda')
+              if e['backend'] == 'cuda':
+                  expected_cuda=json.load(open('build/native-sources/cuda-13.2/SOURCE.json'))
+                  assert e['sourceClosure']['nvidiaBinaryComponents'] == expected_cuda['nvidiaBinaryComponents']
           manifest={'version':1,'engine':os.environ['ENGINE'],'release':os.environ['RELEASE_TAG'],
               'upstreamVersion':os.environ['UPSTREAM_VERSION'],'sourceCommit':os.environ['SOURCE_COMMIT'],
               'upstreamRelease':upstream,'packageRevision':pin['packageRevision'],'artifacts':entries}

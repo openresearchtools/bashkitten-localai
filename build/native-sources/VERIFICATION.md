@@ -123,3 +123,42 @@ under `daughter-artifacts/old-linux-arm64-cuda/` in the existing
 `component-refresh-20261019` acceptance directory. No AI engine was built or run
 locally, no host NVIDIA installation changed, and no CI run was dispatched or
 cancelled for this inspection.
+
+
+## User-authorized CUDA boundary and corrective CI fixes
+
+After the preceding inspection, the user explicitly directed retaining CUDA in
+the separate MIT runtime daughter repository. NVIDIA's unavailable-original-
+source implementation components are authorized with their own full licenses
+and exact provenance; they are not relabelled MIT or full corresponding source.
+This supersedes the preceding unresolved-policy conclusion, not its technical
+finding. No browser license boundary or GPU implementation changed.
+
+The exact arm64/amd64 libdevice bitcode and full package notices are retained.
+CUDA package provenance now also fingerprints the actual compiler programs and
+libcudadevrt/static-cudart inputs. These archive candidates are distinct from
+observed incorporated members and from the external dynamic CUDA prerequisites.
+The existing source closure metadata states this exception explicitly; the
+publication check accepts verified policy compliance while keeping the complete-
+original-source flag false for CUDA. Available-source checks remain required.
+No additional approval, attestation or kernel/linkage mechanism was introduced.
+
+Corrective run `39330013225` revealed a classifier bug after successful native
+compilation: Linux arm64 job `118330259611` rejected
+`libggml-cpu-armv9.2_1.so`, and Android arm64 job `118330259599` rejected
+`libggml-cpu-android_armv9.2_2.so`. GGML's architecture suffixes legitimately
+contain dots. The family classifier now accepts these upstream names; unrelated
+libraries remain rejected. Existing map retention now runs immediately after
+compilation so later packaging failures preserve linker diagnostics. Linux amd64
+Vulkan job `118330259668` succeeded in the same run. Remaining jobs are not
+cancelled, and no replacement build is dispatched by this change.
+
+
+Bounded validation for this correction: eight source/classification tests pass,
+including changed CUDA binary fingerprints and authorized versus unknown static
+members; the actual old arm64 CUDA package's 26 ELF files pass the corrected
+library classifier. Workflow YAML/embedded Python, Python syntax and whitespace
+checks pass. Both retained libnvvm notices exactly match the complete CUDA
+license already emitted in runtime packages. Android amd64 Vulkan job
+`118330259748` subsequently succeeded; both CUDA jobs were still running at the
+last bounded snapshot. This is not a replacement native build or installed test.

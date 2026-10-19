@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tarfile
 
-from native_sources import audit_cuda_device_link, audit_libraries, audit_static_maps, native_notices, sha256, verify_sources
+from native_sources import describe_source_closure, audit_libraries, audit_static_maps, native_notices, sha256, verify_sources
 
 engine, backend, arch = (os.environ[name] for name in ('ENGINE', 'BACKEND', 'TARGETARCH'))
 target_os = os.environ.get('TARGETOS', 'linux')
@@ -86,7 +86,6 @@ subprocess.run(args, check=True)
 commands = subprocess.check_output(['ninja', '-C', str(build), '-t', 'commands', *executables], text=True)
 (evidence / 'commands.txt').write_text(commands)
 shutil.copy2(build / 'CMakeCache.txt', evidence / 'CMakeCache.txt')
-if backend == 'cuda': audit_cuda_device_link(commands)
 capabilities = {'cpu': True, 'executionBackends': ['cpu', backend]}
 if engine == 'whisper':
     capabilities['streamingVad'] = True
@@ -108,6 +107,8 @@ if (build / 'bin').exists():
         if (previous.is_file() or previous.is_symlink()) and (previous.name in executables or '.so' in previous.name or previous.name.endswith('.native-link-map')):
             previous.unlink()
 subprocess.run(['cmake', '--build', str(build), '--parallel', str(jobs), '--target', *executables], check=True)
+for link_map in (build / 'bin').glob('*.native-link-map'):
+    shutil.copy2(link_map, evidence / link_map.name)
 for filename in (build / 'bin').iterdir():
     if filename.is_file() and (filename.name in executables or re.fullmatch(r'.*\.so(?:\.\d+)*', filename.name)):
         shutil.copy2(filename.resolve(), payload / 'bin' / filename.name)
@@ -146,13 +147,8 @@ else:
         assert partial.returncode != 0, 'VAD must reject a partial PCM frame'
 readelf = ndk / 'toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf' if ndk else 'readelf'
 native_graph = audit_libraries(payload / 'bin', executables, target_os, backend, readelf)
-for link_map in (build / 'bin').glob('*.native-link-map'):
-    shutil.copy2(link_map, evidence / link_map.name)
-static_graph = audit_static_maps(build, payload / 'bin', target_os, ndk)
-source_closure = {'status': 'verified-retained-native-inputs' if backend != 'cuda' else 'pending-cuda-device-code-inspection',
-                  'retainedSourcesVerified': True, 'hostStaticLinkageVerified': True}
-if backend == 'cuda':
-    source_closure['pending'] = 'Independent inspection of the final CUDA device code/compiler intrinsics; host linker maps and DT_NEEDED alone do not establish this.'
+static_graph = audit_static_maps(build, payload / 'bin', target_os, ndk, source_dependencies.get('cuda', {}).get('binaryInputs'))
+source_closure = describe_source_closure(source_dependencies)
 for name, item in static_graph.items():
     shutil.copy2(build / item['map'], evidence / (name + '.native-link-map'))
 record = {'version': 1, 'engine': engine, 'upstreamVersion': os.environ['UPSTREAM_VERSION'], 'sourceCommit': source,
@@ -206,7 +202,7 @@ entry = {key: record[key] for key in ('engine', 'os', 'arch', 'backend', 'source
 entry.update(file=archive.name, sha256=sha, executable=engine + '-server', executables=executables,
              minimumAndroidApi=record['minimumAndroidApi'], capabilities=capabilities,
              sourceFile=source_archive.name, sourceSHA256=sha256(source_archive),
-             correspondingSourcesVerified=backend != 'cuda', hostStaticLinkageVerified=True, sourceClosure=source_closure)
+             correspondingSourcesVerified=backend != 'cuda', sourcePolicyVerified=True, hostStaticLinkageVerified=True, sourceClosure=source_closure)
 if engine == 'whisper':
     entry['vad'] = record['vad']
 (output / (base + '.json')).write_text(json.dumps(entry, indent=2) + '\n')

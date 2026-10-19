@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from native_sources import audit_cuda_device_link, audit_libraries, audit_static_maps, verify_inventory, verify_sources, verify_ubuntu
+from native_sources import describe_source_closure, audit_libraries, audit_static_maps, verify_inventory, verify_sources, verify_ubuntu, verify_cuda
 
 
 class SourceGates(unittest.TestCase):
@@ -46,10 +46,43 @@ class SourceGates(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'Unmapped bundled'):
                 audit_libraries(root, [], 'android', 'vulkan', 'readelf')
 
-    def test_cuda_device_link_is_not_mistaken_for_host_linkage(self):
-        audit_cuda_device_link('nvcc -c kernel.cu -o kernel.o')
-        with self.assertRaisesRegex(RuntimeError, 'separate static device-runtime'):
-            audit_cuda_device_link('nvcc -dlink kernel.o -o linked.o')
+    def test_upstream_arm_cpu_variant_names_keep_their_source_classification(self):
+        # Actual upstream GGML_CPU_ALL_VARIANTS outputs from the arm64 CI job.
+        names = ['libggml-cpu-armv8.0_1.so', 'libggml-cpu-armv8.2_1.so',
+                 'libggml-cpu-armv8.2_2.so', 'libggml-cpu-armv8.2_3.so',
+                 'libggml-cpu-armv8.6_1.so', 'libggml-cpu-armv8.6_2.so',
+                 'libggml-cpu-armv9.2_1.so', 'libggml-cpu-armv9.2_2.so',
+                 'libggml-cpu-android_armv9.2_2.so', 'libggml-base.so.0.15.1', 'libggml-vulkan.so']
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            for name in names: (root / name).write_bytes(b'ELF fixture')
+            with patch('native_sources.subprocess.check_output', return_value='(NEEDED) Shared library: [libc.so.6]'):
+                self.assertEqual(set(audit_libraries(root, [], 'linux', 'vulkan', 'readelf')), set(names))
+            (root / 'libunrelated-1.2.so').write_bytes(b'unknown')
+            with self.assertRaisesRegex(RuntimeError, 'Unmapped bundled'):
+                audit_libraries(root, [], 'linux', 'vulkan', 'readelf')
+
+    def test_cuda_binary_authorization_does_not_claim_full_original_source(self):
+        pin = json.loads((Path(__file__).parent / 'native-sources/cuda-13.2/SOURCE.json').read_text())
+        cuda = describe_source_closure({'cuda': {'provenance': pin}})
+        self.assertEqual(cuda['status'], 'verified-with-nvidia-binary-components')
+        self.assertFalse(cuda['nvidiaBinaryComponents']['libdevice']['originalImplementationSourceAvailable'])
+        self.assertNotIn('nvidiaBinaryComponents', describe_source_closure({}))
+
+    def test_cuda_binary_input_fingerprint_must_match(self):
+        root = Path(__file__).parent / 'native-sources/cuda-13.2'
+        pin = json.loads((root / 'SOURCE.json').read_text())
+        packages = pin['packages']['amd64']
+        expected = {}
+        for package in packages.values():
+            expected.update({'/' + name: digest for name, digest in package['retainedFiles'].items()})
+            expected.update({'/' + name: item['sha256'] for name, item in package.get('binaryInputs', {}).items()})
+        with patch('native_sources.verify_inventory', return_value={}), patch('native_sources.subprocess.check_output', side_effect=lambda command, **kwargs: packages[command[-1]]['version']), patch('native_sources.sha256', side_effect=lambda path: expected[str(path)]):
+            result = verify_cuda(root, 'amd64')
+            self.assertTrue(result['binaryInputs'])
+            expected['/usr/local/cuda-13.2/bin/ptxas'] = 'changed'
+            with self.assertRaisesRegex(RuntimeError, 'binary input differs'):
+                verify_cuda(root, 'amd64')
 
     def test_installed_source_version_must_match(self):
         with patch('native_sources.subprocess.check_output', return_value='gcc-14\twrong'):
@@ -67,6 +100,8 @@ class SourceGates(unittest.TestCase):
             m.write_text('/usr/local/cuda/lib64/libcudart_static.a(runtime.o)\n')
             with self.assertRaisesRegex(RuntimeError, 'without corresponding source'):
                 audit_static_maps(build, binary, 'linux')
+            inputs = {str(Path('/usr/local/cuda/lib64/libcudart_static.a').resolve()): {'kind': 'static-runtime'}}
+            self.assertEqual(audit_static_maps(build, binary, 'linux', cuda_inputs=inputs)['test']['staticMembers'][0]['source'], 'nvidia-cuda-13.2-binary')
             m.write_text('/usr/lib/gcc/x86_64-linux-gnu/14/libgcc.a(unwind.o)\n')
             self.assertEqual(audit_static_maps(build, binary, 'linux')['test']['staticMembers'][0]['source'], 'gcc-14')
             m.write_text('LOAD /usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o\n')
