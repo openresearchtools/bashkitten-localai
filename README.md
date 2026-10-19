@@ -95,3 +95,13 @@ Packages built from earlier recipe revisions (including r1) preserve their
 original source and recipe notices. Their files and tags are immutable; this license
 change does not overwrite historical archives or trigger engine recompilation.
 Future package revisions use the MIT build-integration notice.
+
+Native corresponding sources are retained in
+[`build/native-sources`](build/native-sources/README.md), including the exact
+Android r29 libc++/ABI/unwind/builtins and Bionic CRT sources, Android changes
+and build recipes, plus the installed Ubuntu runtime/header source packages.
+Packaging fails on missing/changed source, an unmatched installed source
+version, an unknown bundled/system dependency, or an unaccounted statically
+incorporated archive member/CRT object. Each delivered source archive includes
+actual compiler commands and linker maps; artifact metadata binds its name and
+SHA256. These checks apply to both engines and every platform/backend.

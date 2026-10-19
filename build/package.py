@@ -12,6 +12,8 @@ import subprocess
 import sys
 import tarfile
 
+from native_sources import audit_cuda_device_link, audit_libraries, audit_static_maps, native_notices, sha256, verify_sources
+
 engine, backend, arch = (os.environ[name] for name in ('ENGINE', 'BACKEND', 'TARGETARCH'))
 target_os = os.environ.get('TARGETOS', 'linux')
 assert engine in ('llama', 'whisper') and backend in ('vulkan', 'cuda') and arch in ('amd64', 'arm64')
@@ -26,6 +28,12 @@ build = cache / 'build' / variant
 payload = cache / 'payload' / variant
 output = Path(os.environ.get('OUTPUT_DIR', '/out'))
 inputs = Path(os.environ.get('BUILD_INPUTS', '/build-inputs'))
+ndk = Path(os.environ.get('ANDROID_NDK', '/opt/android-ndk-r29')) if target_os == 'android' else None
+source_dependencies = verify_sources(inputs, target_os, arch, backend, ndk)
+evidence = cache / 'evidence' / variant
+if evidence.exists(): shutil.rmtree(evidence)
+evidence.mkdir(parents=True)
+(evidence / 'retained-sources.json').write_text(json.dumps(source_dependencies, indent=2) + '\n')
 pin = json.loads((inputs / 'upstreams.json').read_text())[engine]
 assert source == pin['commit'] and os.environ['UPSTREAM_VERSION'] == pin['version']
 revision = pin['packageRevision']
@@ -47,10 +55,10 @@ args = ['cmake', '-S', str(root), '-B', str(build), '-G', 'Ninja', '-DCMAKE_BUIL
         '-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache',
         '-DCMAKE_CUDA_COMPILER_LAUNCHER=ccache',
         '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(build / 'bin'),
+        '-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=' + str(inputs / 'native-audit.cmake'),
         '-DGGML_CUDA=' + ('ON' if backend == 'cuda' else 'OFF'),
         '-DGGML_VULKAN=' + ('ON' if backend == 'vulkan' else 'OFF')]
 if target_os == 'android':
-    ndk = Path(os.environ.get('ANDROID_NDK', '/opt/android-ndk-r29'))
     args += ['-DCMAKE_TOOLCHAIN_FILE=' + str(ndk / 'build/cmake/android.toolchain.cmake'),
              '-DANDROID_ABI=' + ('x86_64' if arch == 'amd64' else 'arm64-v8a'),
              '-DANDROID_PLATFORM=android-28', '-DANDROID_STL=c++_shared',
@@ -75,6 +83,10 @@ else:
              '-DWHISPER_BUILD_SERVER=ON', '-DWHISPER_CURL=OFF',
              '-DCMAKE_PROJECT_INCLUDE=' + str(inputs / 'vad.cmake')]
 subprocess.run(args, check=True)
+commands = subprocess.check_output(['ninja', '-C', str(build), '-t', 'commands', *executables], text=True)
+(evidence / 'commands.txt').write_text(commands)
+shutil.copy2(build / 'CMakeCache.txt', evidence / 'CMakeCache.txt')
+if backend == 'cuda': audit_cuda_device_link(commands)
 capabilities = {'cpu': True, 'executionBackends': ['cpu', backend]}
 if engine == 'whisper':
     capabilities['streamingVad'] = True
@@ -89,9 +101,15 @@ if engine == 'llama':
         assert '-DSUBPROCESS_SPAWN_VIA_FORK=1' in (build / 'build.ninja').read_text(), 'Termux needs the supported fork/exec implementation'
     capabilities.update(subprocess=True, router=True,
                         subprocessImplementation='fork-exec' if target_os == 'android' else 'posix-spawn')
+# Keep object/compiler caches, but relink the current target graph. Otherwise a
+# removed upstream DSO or an old link map could survive a source update in bin/.
+if (build / 'bin').exists():
+    for previous in (build / 'bin').iterdir():
+        if (previous.is_file() or previous.is_symlink()) and (previous.name in executables or '.so' in previous.name or previous.name.endswith('.native-link-map')):
+            previous.unlink()
 subprocess.run(['cmake', '--build', str(build), '--parallel', str(jobs), '--target', *executables], check=True)
 for filename in (build / 'bin').iterdir():
-    if filename.is_file() and (filename.name in executables or '.so' in filename.name):
+    if filename.is_file() and (filename.name in executables or re.fullmatch(r'.*\.so(?:\.\d+)*', filename.name)):
         shutil.copy2(filename.resolve(), payload / 'bin' / filename.name)
 for executable in executables: assert (payload / 'bin' / executable).is_file(), executable
 assert (payload / 'bin' / ('libggml-' + backend + '.so')).is_file()
@@ -126,14 +144,25 @@ else:
         assert all(0 <= p <= 1 for p in struct.unpack('<ff', result.stdout[6:])), 'Invalid VAD probability'
         partial = subprocess.run(command, input=b'\x00', capture_output=True, timeout=60)
         assert partial.returncode != 0, 'VAD must reject a partial PCM frame'
+readelf = ndk / 'toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf' if ndk else 'readelf'
+native_graph = audit_libraries(payload / 'bin', executables, target_os, backend, readelf)
+for link_map in (build / 'bin').glob('*.native-link-map'):
+    shutil.copy2(link_map, evidence / link_map.name)
+static_graph = audit_static_maps(build, payload / 'bin', target_os, ndk)
+source_closure = {'status': 'verified-retained-native-inputs' if backend != 'cuda' else 'pending-cuda-device-code-inspection',
+                  'retainedSourcesVerified': True, 'hostStaticLinkageVerified': True}
+if backend == 'cuda':
+    source_closure['pending'] = 'Independent inspection of the final CUDA device code/compiler intrinsics; host linker maps and DT_NEEDED alone do not establish this.'
+for name, item in static_graph.items():
+    shutil.copy2(build / item['map'], evidence / (name + '.native-link-map'))
 record = {'version': 1, 'engine': engine, 'upstreamVersion': os.environ['UPSTREAM_VERSION'], 'sourceCommit': source,
           'os': target_os, 'arch': arch, 'backend': backend, 'release': release,
           'packageRevision': revision, 'upstreamRelease': upstream_release,
           'cmake': args, 'builderCommit': os.environ['BUILDER_COMMIT'], 'executables': executables,
           'capabilities': capabilities,
-          'recipeSHA256': {str(p.relative_to(inputs)): hashlib.file_digest(p.open('rb'), 'sha256').hexdigest()
-                           for p in inputs.rglob('*') if p.is_file()},
-          'externalLibraries': dependencies, 'minimumGlibc': '2.39' if target_os == 'linux' else None,
+          'recipeSHA256': {str(p.relative_to(inputs)): sha256(p) for p in inputs.rglob('*') if p.is_file() or p.is_symlink()},
+          'externalLibraries': dependencies, 'nativeLibraries': native_graph, 'staticLinkage': static_graph,
+          'correspondingSources': source_dependencies, 'sourceClosure': source_closure, 'minimumGlibc': '2.39' if target_os == 'linux' else None,
           'minimumAndroidApi': 28 if target_os == 'android' else None,
           'systemPackages': (['libc6', 'libstdc++6', 'libgcc-s1', 'libgomp1'] + (['libvulkan1'] if backend == 'vulkan' else [])) if target_os == 'linux' else [],
           'cudaRequirements': 'CUDA 13 compatible NVIDIA driver, libcudart and libcublas' if backend == 'cuda' else None}
@@ -160,6 +189,7 @@ for filename in sorted(root.rglob('*.h')):
 if engine == 'whisper':
     for name in ('SILERO-LICENSE', 'upstream/whisper/LICENSE'):
         notices.append('===== VAD ' + name + ' =====\n' + (inputs / 'vad' / name).read_text())
+notices.extend(native_notices(inputs, source_dependencies))
 (payload / 'LICENSES.txt').write_text('\n\n'.join(notices))
 (payload / 'BUILD-PACKAGES.txt').write_text(subprocess.check_output(['dpkg-query', '-W', '-f=${Package}\t${Version}\n'], text=True))
 base = f'{engine}-{pin["version"]}-r{revision}-{target_os}-{arch}-{backend}'
@@ -170,10 +200,13 @@ source_archive = output / (base + '-source.tar.gz')
 with tarfile.open(source_archive, 'w:gz') as tar:
     tar.add(root, arcname='source', filter=lambda info: None if '/.git/' in info.name or info.name.endswith('/.git') else info)
     tar.add(inputs, arcname='build')
-sha = hashlib.file_digest(archive.open('rb'), 'sha256').hexdigest()
+    tar.add(evidence, arcname='build-evidence')
+sha = sha256(archive)
 entry = {key: record[key] for key in ('engine', 'os', 'arch', 'backend', 'sourceCommit', 'upstreamRelease', 'packageRevision')}
 entry.update(file=archive.name, sha256=sha, executable=engine + '-server', executables=executables,
-             minimumAndroidApi=record['minimumAndroidApi'], capabilities=capabilities)
+             minimumAndroidApi=record['minimumAndroidApi'], capabilities=capabilities,
+             sourceFile=source_archive.name, sourceSHA256=sha256(source_archive),
+             correspondingSourcesVerified=backend != 'cuda', hostStaticLinkageVerified=True, sourceClosure=source_closure)
 if engine == 'whisper':
     entry['vad'] = record['vad']
 (output / (base + '.json')).write_text(json.dumps(entry, indent=2) + '\n')

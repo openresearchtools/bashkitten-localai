@@ -22,7 +22,7 @@ RUN if [ "$TARGETOS" = android ]; then \
     unzip -q /tmp/ndk.zip -d /opt && rm /tmp/ndk.zip && \
     mkdir /opt/vulkan-headers && cp -a /usr/include/vulkan /usr/include/vk_video /usr/include/spirv /opt/vulkan-headers/; fi
 ENV PATH=/usr/local/cuda-13.2/bin:${PATH} CUDAToolkit_ROOT=/usr/local/cuda-13.2
-ENV CCACHE_DIR=/cache/ccache CCACHE_MAXSIZE=0 npm_config_cache=/cache/npm
+ENV CCACHE_DIR=/cache/ccache CCACHE_MAXSIZE=0 CCACHE_COMPILERCHECK=content npm_config_cache=/cache/npm
 FROM builder AS build
 ARG ENGINE
 ARG BACKEND

@@ -6,7 +6,7 @@
     "releaseId": 414070533,
     "releaseUrl": "https://github.com/ggml-org/llama.cpp/releases/tag/v0.7.0",
     "tagObject": "757cad021b357f417065ddbc41a6e8f87c1f8136",
-    "packageRevision": 1
+    "packageRevision": 2
   },
   "whisper": {
     "repository": "ggml-org/whisper.cpp",

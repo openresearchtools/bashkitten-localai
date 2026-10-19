@@ -33,6 +33,8 @@ jobs:
       platforms: ${{ steps.pin.outputs.platforms }}
     steps:
       - uses: actions/checkout@v6
+      - name: Verify retained native sources and fail-closed linkage gates
+        run: python3 build/test_native_sources.py
       - name: Verify exact Silero model conversion
         if: ${{ inputs.engine == 'whisper' }}
         run: |
@@ -89,10 +91,11 @@ jobs:
           path: src
           submodules: recursive
       - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
+        id: compiler-cache
         with:
           path: .localai-cache
-          key: localai-${{ inputs.engine }}-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }}-${{ needs.source.outputs.commit }}-${{ github.sha }}
+          key: localai-${{ inputs.engine }}-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }}-${{ needs.source.outputs.commit }}-${{ hashFiles('build/native-sources/**/SOURCE.json') }}-${{ github.sha }}
           restore-keys: |
             localai-${{ inputs.engine }}-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }}-
       - name: Build cached native runtimes
@@ -112,14 +115,27 @@ jobs:
             --cache-to type=gha,mode=max,scope=builder-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }} \
             -f build/Dockerfile .
           mkdir -p .localai-cache .localai-recipe artifacts
-          cp build/{Dockerfile,package.py,releases.py,local.sh,termux.cmake,vad.cmake,DONOR-LICENSE} LICENSE upstreams.json .localai-recipe/
-          cp -a build/vad .localai-recipe/
+          cp build/{Dockerfile,package.py,releases.py,local.sh,termux.cmake,vad.cmake,native_sources.py,native-audit.cmake,link_audit.py,DONOR-LICENSE} LICENSE upstreams.json .localai-recipe/
+          cp -a build/vad build/native-sources .localai-recipe/
           docker run --rm --user "$(id -u):$(id -g)" \
             -e ENGINE -e BACKEND -e TARGETOS -e TARGETARCH -e SOURCE_COMMIT -e UPSTREAM_VERSION -e RELEASE_TAG -e BUILDER_COMMIT \
             -e BUILD_JOBS="$(nproc)" -e OMP_WAIT_POLICY=ACTIVE -e GOMP_SPINCOUNT=INFINITE \
             -e BUILD_INPUTS=/recipe -v "$PWD/src:/src" -v "$PWD/.localai-cache:/cache" -v "$PWD/artifacts:/out" \
             -v "$PWD/.localai-recipe:/recipe:ro" \
             localai-builder python3 /recipe/package.py
+      - name: Preserve compiler cache even when a source audit blocks packaging
+        if: ${{ always() && steps.compiler-cache.outputs.cache-hit != 'true' && steps.compiler-cache.outputs.cache-primary-key != '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: .localai-cache
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+      - name: Retain native source and linker diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: diagnostics-${{ inputs.engine }}-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }}
+          path: .localai-cache/evidence/
+          if-no-files-found: ignore
       - name: Immediate manually downloadable artifacts
         uses: actions/upload-artifact@v6
         with:
@@ -170,6 +186,9 @@ jobs:
                   expected_vad=json.load(open('build/vad/SOURCE.json'))
                   assert e['vad'] == {k:expected_vad[k] for k in ('silero','converter','model')}
               assert hashlib.file_digest((root/e['file']).open('rb'),'sha256').hexdigest()==e['sha256']
+              assert e['sourceFile'] == e['file'].removesuffix('.tar.gz') + '-source.tar.gz'
+              assert hashlib.file_digest((root/e['sourceFile']).open('rb'),'sha256').hexdigest()==e['sourceSHA256']
+              assert e['correspondingSourcesVerified'] is True and e['hostStaticLinkageVerified'] is True
           manifest={'version':1,'engine':os.environ['ENGINE'],'release':os.environ['RELEASE_TAG'],
               'upstreamVersion':os.environ['UPSTREAM_VERSION'],'sourceCommit':os.environ['SOURCE_COMMIT'],
               'upstreamRelease':upstream,'packageRevision':pin['packageRevision'],'artifacts':entries}

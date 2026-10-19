@@ -28,12 +28,13 @@ builder_commit=$(git -C "$repo" rev-parse HEAD)
 # Snapshot recipe inputs before starting; this also preserves the exact source of
 # an in-progress build if the working checkout is edited concurrently.
 recipe_hash=$(python3 - "$repo" <<'PYHASH'
-import hashlib,pathlib,sys
+import hashlib,pathlib,sys,os
 root=pathlib.Path(sys.argv[1]);h=hashlib.sha256()
-names=['build/Dockerfile','build/package.py','build/releases.py','build/local.sh','build/termux.cmake','build/vad.cmake','build/DONOR-LICENSE','LICENSE','upstreams.json']
-names += [str(p.relative_to(root)) for p in sorted((root/'build/vad').rglob('*')) if p.is_file()]
+names=['build/Dockerfile','build/package.py','build/releases.py','build/local.sh','build/termux.cmake','build/vad.cmake','build/native_sources.py','build/native-audit.cmake','build/link_audit.py','build/DONOR-LICENSE','LICENSE','upstreams.json']
+names += [str(p.relative_to(root)) for p in sorted((root/'build/vad').rglob('*')) if p.is_file() or p.is_symlink()]
+names += [str(p.relative_to(root)) for p in sorted((root/'build/native-sources').rglob('*')) if p.is_file() or p.is_symlink()]
 for name in names:
- h.update(name.encode());h.update((root/name).read_bytes())
+ h.update(name.encode());p=root/name;h.update(os.readlink(p).encode() if p.is_symlink() else p.read_bytes())
 print(h.hexdigest())
 PYHASH
 )
@@ -41,8 +42,8 @@ mkdir -p "$work/recipes"
 recipe="$work/recipes/$recipe_hash"
 if [[ ! -d "$recipe" ]]; then
   staging=$(mktemp -d "$work/recipes/.staging.XXXXXX")
-  cp "$repo/build/"{Dockerfile,package.py,releases.py,local.sh,termux.cmake,vad.cmake,DONOR-LICENSE} "$repo/"{LICENSE,upstreams.json} "$staging/"
-  cp -a "$repo/build/vad" "$staging/"
+  cp "$repo/build/"{Dockerfile,package.py,releases.py,local.sh,termux.cmake,vad.cmake,native_sources.py,native-audit.cmake,link_audit.py,DONOR-LICENSE} "$repo/"{LICENSE,upstreams.json} "$staging/"
+  cp -a "$repo/build/vad" "$repo/build/native-sources" "$staging/"
   if ! mv -T "$staging" "$recipe" 2>/dev/null; then rm -r "$staging"; fi
 fi
 image="localhost/bashkitten-localai-$os-$backend:builder"
