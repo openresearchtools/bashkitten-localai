@@ -13,7 +13,7 @@
 <br/>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/f2940867-0a51-4bdb-8c14-1129d3c44e64" />
+  <img src="https://github.com/user-attachments/assets/dfd29c4f-226a-4687-8bea-e8faaaee0287" />
 </p>
 
 
@@ -40,13 +40,27 @@ Please note, that video loads only if you are logged in your GitHub account.
   - 1G+ RAM;
   - A modern CPU with AVX, AVX2, AVX-512 or AMX instruction sets.
 
-  Dependencies:
+  Required:
   
-  - `torch>=1.12.0`;
-  - `torchaudio>=0.12.0` (for I/O only);
-  - `onnxruntime>=1.16.1` (for ONNX model usage).
+  - `torch>=1.12.0`.
   
-  Silero VAD uses torchaudio library for audio I/O (`torchaudio.info`, `torchaudio.load`, and `torchaudio.save`), so a proper audio backend is required:
+  Everything else is optional and installed via extras:
+  
+  | Extra | Installs | Needed for |
+  |---|---|---|
+  | `silero-vad[audio]` | `torchaudio>=0.12.0,<2.10`, plus `torchcodec` on Python 3.9+ | `read_audio` / `save_audio` |
+  | `silero-vad[codec]` | `torchcodec` | `read_audio` / `save_audio` with no torchaudio at all |
+  | `silero-vad[onnx-cpu]` | `onnxruntime>=1.16.1`, `numpy` | ONNX and sequence models |
+  | `silero-vad[onnx-gpu]` | `onnxruntime-gpu>=1.16.1`, `numpy` | ONNX on GPU |
+  | `silero-vad[all]` | all of the above | everything |
+  
+  `[audio]` pulls in torchcodec on Python 3.9+ because `torchaudio>=2.9` hands decoding over to it and does not work without it; on Python 3.8 pip resolves an older torchaudio that decodes on its own. torchcodec itself needs FFmpeg (4-9) on the system.
+  
+  The model itself needs only `torch` — if you already load audio yourself, pass a 1-D float32 `torch.Tensor` straight to `get_speech_timestamps` and install nothing extra.
+  
+  The bundled I/O helpers (`read_audio`, `save_audio`) work with **either** backend: torchaudio if present, otherwise torchcodec. Note that torchcodec resamples through FFmpeg rather than `torchaudio.transforms.Resample`, so results can differ by ~1e-3 on files that need resampling.
+  
+  With torchaudio, a proper audio backend is required:
   
   - Option №1 - [**FFmpeg**](https://www.ffmpeg.org/) backend. `conda install -c conda-forge 'ffmpeg<7'`;
   - Option №2 - [**sox_io**](https://pypi.org/project/sox/) backend. `apt-get install sox`, TorchAudio is tested on libsox 14.4.2;
@@ -60,7 +74,7 @@ If you are planning to run the VAD using solely the `onnx-runtime`, it will run 
 </details>
 
 **Using pip**:
-`pip install silero-vad`
+`pip install silero-vad[audio]` (or plain `pip install silero-vad` if you load audio yourself)
 
 ```python3
 from silero_vad import load_silero_vad, read_audio, get_speech_timestamps
@@ -171,8 +185,16 @@ Please see our [wiki](https://github.com/snakers4/silero-models/wiki) for releva
 <h2 align="center">Examples and VAD-based Community Apps</h2>
 <br/>
 
-- Example of VAD ONNX Runtime model usage in [C++](https://github.com/snakers4/silero-vad/tree/master/examples/cpp) 
+- Example of VAD ONNX Runtime model usage in [C++](https://github.com/snakers4/silero-vad/tree/master/examples/cpp)
+
+- Example of VAD [ExecuTorch](https://github.com/pytorch/executorch) model usage in [C++](https://github.com/pytorch/executorch/tree/main/examples/models/silero_vad)
 
 - Voice activity detection for the [browser](https://github.com/ricky0123/vad) using ONNX Runtime Web
 
-- [Rust](https://github.com/snakers4/silero-vad/tree/master/examples/rust-example), [Go](https://github.com/snakers4/silero-vad/tree/master/examples/go), [Java](https://github.com/snakers4/silero-vad/tree/master/examples/java-example), [C++](https://github.com/snakers4/silero-vad/tree/master/examples/cpp), [C#](https://github.com/snakers4/silero-vad/tree/master/examples/csharp) and [other](https://github.com/snakers4/silero-vad/tree/master/examples) community examples
+- [Rust](https://github.com/snakers4/silero-vad/tree/master/examples/rust-example), [Rust (wavekat-vad)](https://github.com/snakers4/silero-vad/tree/master/examples/rust-wav-processing-with-wavekat-vad), [Go](https://github.com/snakers4/silero-vad/tree/master/examples/go), [Java](https://github.com/snakers4/silero-vad/tree/master/examples/java-example), [C++](https://github.com/snakers4/silero-vad/tree/master/examples/cpp), [C#](https://github.com/snakers4/silero-vad/tree/master/examples/csharp) and [other](https://github.com/snakers4/silero-vad/tree/master/examples) community examples
+
+- OpenVINO conversion [guidelines](https://github.com/snakers4/silero-vad/tree/master/examples/openvino)
+
+- Optional [offline ONNX sequence inference](examples/onnx_sequence) for long recordings
+
+- A tinygrad [model](https://github.com/snakers4/silero-vad/blob/master/src/silero_vad/tinygrad_model.py) with a pico example in the docsting + separate [weights](https://github.com/snakers4/silero-vad/blob/master/src/silero_vad/data/silero_vad_16k.safetensors) in safetensors format (for simplicity we provided just the 16k model)
