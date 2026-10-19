@@ -30,7 +30,7 @@ builder_commit=$(git -C "$repo" rev-parse HEAD)
 recipe_hash=$(python3 - "$repo" <<'PYHASH'
 import hashlib,pathlib,sys,os
 root=pathlib.Path(sys.argv[1]);h=hashlib.sha256()
-names=['build/Dockerfile','build/package.py','build/releases.py','build/local.sh','build/termux.cmake','build/vad.cmake','build/native_sources.py','build/native-audit.cmake','build/link_audit.py','build/DONOR-LICENSE','LICENSE','upstreams.json']
+names=['build/Dockerfile','build/package.py','build/releases.py','build/local.sh','build/termux.cmake','build/vad.cmake','build/native_sources.py','build/DONOR-LICENSE','LICENSE','upstreams.json']
 names += [str(p.relative_to(root)) for p in sorted((root/'build/vad').rglob('*')) if p.is_file() or p.is_symlink()]
 names += [str(p.relative_to(root)) for p in sorted((root/'build/native-sources').rglob('*')) if p.is_file() or p.is_symlink()]
 for name in names:
@@ -42,7 +42,7 @@ mkdir -p "$work/recipes"
 recipe="$work/recipes/$recipe_hash"
 if [[ ! -d "$recipe" ]]; then
   staging=$(mktemp -d "$work/recipes/.staging.XXXXXX")
-  cp "$repo/build/"{Dockerfile,package.py,releases.py,local.sh,termux.cmake,vad.cmake,native_sources.py,native-audit.cmake,link_audit.py,DONOR-LICENSE} "$repo/"{LICENSE,upstreams.json} "$staging/"
+  cp "$repo/build/"{Dockerfile,package.py,releases.py,local.sh,termux.cmake,vad.cmake,native_sources.py,DONOR-LICENSE} "$repo/"{LICENSE,upstreams.json} "$staging/"
   cp -a "$repo/build/vad" "$repo/build/native-sources" "$staging/"
   if ! mv -T "$staging" "$recipe" 2>/dev/null; then rm -r "$staging"; fi
 fi

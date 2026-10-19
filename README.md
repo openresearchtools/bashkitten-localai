@@ -96,18 +96,12 @@ original source and recipe notices. Their files and tags are immutable; this lic
 change does not overwrite historical archives or trigger engine recompilation.
 Future package revisions use the MIT build-integration notice.
 
-Native corresponding sources are retained in
-[`build/native-sources`](build/native-sources/README.md), including the exact
-Android r29 libc++/ABI/unwind/builtins and Bionic CRT sources, Android changes
-and build recipes, plus the installed Ubuntu runtime/header source packages.
-Packaging fails on missing/changed source, an unmatched installed source
-version, an unknown bundled/system dependency, or an unaccounted statically
-incorporated archive member/CRT object. Each delivered source archive includes
-actual compiler commands and linker maps; artifact metadata binds its name and
-SHA256. These checks apply to both engines and every platform/backend.
+Retained third-party source and provenance are delivered in
+[`build/native-sources`](build/native-sources/README.md), alongside full license
+notices. Build metadata records actual package versions and linked libraries.
+Runtime and source archives retain their SHA256 checksums. Builds use pinned
+upstream releases and retain executable, architecture and Android alignment checks.
 
-CUDA additionally uses NVIDIA device math/compiler runtime components whose
-original implementation source is unavailable. Their exact inputs and full
-NVIDIA notices are retained under the authorized separate-runtime policy;
-they are not relicensed MIT. CUDA metadata reports this exception explicitly,
-while Vulkan artifacts retain complete corresponding-source verification.
+CUDA includes NVIDIA device math/compiler runtime components whose original
+implementation source is unavailable. Their provenance and full NVIDIA notices
+are retained; they are not relicensed MIT.

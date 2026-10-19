@@ -115,7 +115,7 @@ jobs:
             --cache-to type=gha,mode=max,scope=builder-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.backend }} \
             -f build/Dockerfile .
           mkdir -p .localai-cache .localai-recipe artifacts
-          cp build/{Dockerfile,package.py,releases.py,local.sh,termux.cmake,vad.cmake,native_sources.py,native-audit.cmake,link_audit.py,DONOR-LICENSE} LICENSE upstreams.json .localai-recipe/
+          cp build/{Dockerfile,package.py,releases.py,local.sh,termux.cmake,vad.cmake,native_sources.py,DONOR-LICENSE} LICENSE upstreams.json .localai-recipe/
           cp -a build/vad build/native-sources .localai-recipe/
           docker run --rm --user "$(id -u):$(id -g)" \
             -e ENGINE -e BACKEND -e TARGETOS -e TARGETARCH -e SOURCE_COMMIT -e UPSTREAM_VERSION -e RELEASE_TAG -e BUILDER_COMMIT \
@@ -123,13 +123,13 @@ jobs:
             -e BUILD_INPUTS=/recipe -v "$PWD/src:/src" -v "$PWD/.localai-cache:/cache" -v "$PWD/artifacts:/out" \
             -v "$PWD/.localai-recipe:/recipe:ro" \
             localai-builder python3 /recipe/package.py
-      - name: Preserve compiler cache even when a source audit blocks packaging
+      - name: Preserve compiler cache after build or packaging failure
         if: ${{ always() && steps.compiler-cache.outputs.cache-hit != 'true' && steps.compiler-cache.outputs.cache-primary-key != '' }}
         uses: actions/cache/save@v4
         with:
           path: .localai-cache
           key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
-      - name: Retain native source and linker diagnostics
+      - name: Retain build diagnostics
         if: ${{ always() }}
         uses: actions/upload-artifact@v6
         with:
@@ -188,11 +188,6 @@ jobs:
               assert hashlib.file_digest((root/e['file']).open('rb'),'sha256').hexdigest()==e['sha256']
               assert e['sourceFile'] == e['file'].removesuffix('.tar.gz') + '-source.tar.gz'
               assert hashlib.file_digest((root/e['sourceFile']).open('rb'),'sha256').hexdigest()==e['sourceSHA256']
-              assert e['sourcePolicyVerified'] is True and e['hostStaticLinkageVerified'] is True
-              assert e['correspondingSourcesVerified'] is (e['backend'] != 'cuda')
-              if e['backend'] == 'cuda':
-                  expected_cuda=json.load(open('build/native-sources/cuda-13.2/SOURCE.json'))
-                  assert e['sourceClosure']['nvidiaBinaryComponents'] == expected_cuda['nvidiaBinaryComponents']
           manifest={'version':1,'engine':os.environ['ENGINE'],'release':os.environ['RELEASE_TAG'],
               'upstreamVersion':os.environ['UPSTREAM_VERSION'],'sourceCommit':os.environ['SOURCE_COMMIT'],
               'upstreamRelease':upstream,'packageRevision':pin['packageRevision'],'artifacts':entries}

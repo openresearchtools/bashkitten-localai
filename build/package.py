@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tarfile
 
-from native_sources import describe_source_closure, audit_libraries, audit_static_maps, native_notices, sha256, verify_sources
+from native_sources import native_notices, retained_sources, sha256
 
 engine, backend, arch = (os.environ[name] for name in ('ENGINE', 'BACKEND', 'TARGETARCH'))
 target_os = os.environ.get('TARGETOS', 'linux')
@@ -29,7 +29,7 @@ payload = cache / 'payload' / variant
 output = Path(os.environ.get('OUTPUT_DIR', '/out'))
 inputs = Path(os.environ.get('BUILD_INPUTS', '/build-inputs'))
 ndk = Path(os.environ.get('ANDROID_NDK', '/opt/android-ndk-r29')) if target_os == 'android' else None
-source_dependencies = verify_sources(inputs, target_os, arch, backend, ndk)
+source_dependencies = retained_sources(inputs, target_os, backend)
 evidence = cache / 'evidence' / variant
 if evidence.exists(): shutil.rmtree(evidence)
 evidence.mkdir(parents=True)
@@ -55,7 +55,7 @@ args = ['cmake', '-S', str(root), '-B', str(build), '-G', 'Ninja', '-DCMAKE_BUIL
         '-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache',
         '-DCMAKE_CUDA_COMPILER_LAUNCHER=ccache',
         '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(build / 'bin'),
-        '-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=' + str(inputs / 'native-audit.cmake'),
+        '-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=',
         '-DGGML_CUDA=' + ('ON' if backend == 'cuda' else 'OFF'),
         '-DGGML_VULKAN=' + ('ON' if backend == 'vulkan' else 'OFF')]
 if target_os == 'android':
@@ -100,15 +100,13 @@ if engine == 'llama':
         assert '-DSUBPROCESS_SPAWN_VIA_FORK=1' in (build / 'build.ninja').read_text(), 'Termux needs the supported fork/exec implementation'
     capabilities.update(subprocess=True, router=True,
                         subprocessImplementation='fork-exec' if target_os == 'android' else 'posix-spawn')
-# Keep object/compiler caches, but relink the current target graph. Otherwise a
-# removed upstream DSO or an old link map could survive a source update in bin/.
+# Keep object/compiler caches, but relink the current target graph so removed
+# upstream libraries do not survive source updates in bin/.
 if (build / 'bin').exists():
     for previous in (build / 'bin').iterdir():
         if (previous.is_file() or previous.is_symlink()) and (previous.name in executables or '.so' in previous.name or previous.name.endswith('.native-link-map')):
             previous.unlink()
 subprocess.run(['cmake', '--build', str(build), '--parallel', str(jobs), '--target', *executables], check=True)
-for link_map in (build / 'bin').glob('*.native-link-map'):
-    shutil.copy2(link_map, evidence / link_map.name)
 for filename in (build / 'bin').iterdir():
     if filename.is_file() and (filename.name in executables or re.fullmatch(r'.*\.so(?:\.\d+)*', filename.name)):
         shutil.copy2(filename.resolve(), payload / 'bin' / filename.name)
@@ -145,20 +143,13 @@ else:
         assert all(0 <= p <= 1 for p in struct.unpack('<ff', result.stdout[6:])), 'Invalid VAD probability'
         partial = subprocess.run(command, input=b'\x00', capture_output=True, timeout=60)
         assert partial.returncode != 0, 'VAD must reject a partial PCM frame'
-readelf = ndk / 'toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf' if ndk else 'readelf'
-native_graph = audit_libraries(payload / 'bin', executables, target_os, backend, readelf)
-static_graph = audit_static_maps(build, payload / 'bin', target_os, ndk, source_dependencies.get('cuda', {}).get('binaryInputs'))
-source_closure = describe_source_closure(source_dependencies)
-for name, item in static_graph.items():
-    shutil.copy2(build / item['map'], evidence / (name + '.native-link-map'))
 record = {'version': 1, 'engine': engine, 'upstreamVersion': os.environ['UPSTREAM_VERSION'], 'sourceCommit': source,
           'os': target_os, 'arch': arch, 'backend': backend, 'release': release,
           'packageRevision': revision, 'upstreamRelease': upstream_release,
           'cmake': args, 'builderCommit': os.environ['BUILDER_COMMIT'], 'executables': executables,
           'capabilities': capabilities,
           'recipeSHA256': {str(p.relative_to(inputs)): sha256(p) for p in inputs.rglob('*') if p.is_file() or p.is_symlink()},
-          'externalLibraries': dependencies, 'nativeLibraries': native_graph, 'staticLinkage': static_graph,
-          'correspondingSources': source_dependencies, 'sourceClosure': source_closure, 'minimumGlibc': '2.39' if target_os == 'linux' else None,
+          'externalLibraries': dependencies, 'retainedSources': source_dependencies, 'minimumGlibc': '2.39' if target_os == 'linux' else None,
           'minimumAndroidApi': 28 if target_os == 'android' else None,
           'systemPackages': (['libc6', 'libstdc++6', 'libgcc-s1', 'libgomp1'] + (['libvulkan1'] if backend == 'vulkan' else [])) if target_os == 'linux' else [],
           'cudaRequirements': 'CUDA 13 compatible NVIDIA driver, libcudart and libcublas' if backend == 'cuda' else None}
@@ -201,8 +192,7 @@ sha = sha256(archive)
 entry = {key: record[key] for key in ('engine', 'os', 'arch', 'backend', 'sourceCommit', 'upstreamRelease', 'packageRevision')}
 entry.update(file=archive.name, sha256=sha, executable=engine + '-server', executables=executables,
              minimumAndroidApi=record['minimumAndroidApi'], capabilities=capabilities,
-             sourceFile=source_archive.name, sourceSHA256=sha256(source_archive),
-             correspondingSourcesVerified=backend != 'cuda', sourcePolicyVerified=True, hostStaticLinkageVerified=True, sourceClosure=source_closure)
+             sourceFile=source_archive.name, sourceSHA256=sha256(source_archive))
 if engine == 'whisper':
     entry['vad'] = record['vad']
 (output / (base + '.json')).write_text(json.dumps(entry, indent=2) + '\n')

@@ -46,48 +46,20 @@ InRelease metadata (key `EB693B3035CD5710E231E123A4B469963BF863CC`). Standalone 
 compiler programs and CUDA DSOs are not copied into runtime payloads. Exact
 libdevice bitcode is retained as a binary compiler input in the matching source/
 provenance archive, explicitly not as original human-readable source.
-The exact installed header/package fingerprints must match before a CUDA build.
 
-Before compilation, `native_sources.py` verifies the retained files and exact
-installed source-package versions. A changed distro package therefore fails
-with an explicit source-refresh error. It also compares the NDK's compiler
-manifest, patch list, notices, revision and ABI-specific libc++ hash. Source
-snapshots and the compiler-content identity are included in cache provenance.
-
-The runtime packages contain the engine/ggml DSOs and, on Android, libc++.
+The runtime packages contain engine/ggml libraries and, on Android, libc++.
 Linux glibc, libstdc++, libgcc, OpenMP and Vulkan remain system libraries.
-CUDA 13's driver, cudart and cuBLAS were already external prerequisites; the
-source repair does not add a toolkit installation requirement or change CUDA,
-RDC, kernel or backend options. Linker maps additionally enumerate actual
-static archive members and CRT objects: an unknown incorporated component
-blocks packaging even when it is absent from `DT_NEEDED`. Merely listing an
-unused static archive on a linker command does not establish incorporation.
+CUDA 13's driver, cudart and cuBLAS remain external prerequisites.
 
-The compiler program itself is not distributed in runtime archives. Its exact
-provenance and build recipes are retained above; the selected LLVM tree is the
-complete incorporated runtime/header source, not a claim to import the whole
-LLVM compiler, Android platform or host operating system.
+On 19 October 2026 the user directed removal of the additional blocking native
+source audits from this separate MIT runtime repository. The library-name lists,
+source-package version matching, static-link classification and publication
+attestation gates are removed. Retained source records, full notices, actual
+build-package versions and archive hashes remain delivered. Historical audit
+results in VERIFICATION.md describe those earlier builds, not current gates.
 
-On 19 October 2026 the user explicitly directed retaining CUDA in this separate
-MIT runtime daughter repository, with NVIDIA's licenses/provenance preserved.
-This authorizes the unavailable-original-source NVIDIA compiler/runtime
-components; it does not relicense them MIT or alter the browser's AGPL/MPL
-boundary. Available source remains required and verified for the engine,
-CCCL, headers, Android runtime and Ubuntu runtime inputs.
-
-The actual old arm64 artifact embeds libdevice `__nv_erff` code and NVIDIA
-compiler-generated device helpers (see `VERIFICATION.md`). `SOURCE.json`
-records the exact libdevice binary input, original package checksums, compiler
-fingerprints and full NVIDIA notice. It separately identifies libcudadevrt and
-static cudart as possible compiler/link inputs: only actual archive members in
-link maps are reported as observed incorporation. These inputs are fingerprinted
-against their exact official packages before building. Unknown incorporated
-archives still fail classification. CUDA driver, dynamic cudart and cuBLAS remain
-external prerequisites; no kernel, device-link or GPU selection flags change.
-
-CUDA artifact metadata records `verified-with-nvidia-binary-components` and
-`sourcePolicyVerified: true` after the retained sources/input checks pass. It
-keeps `correspondingSourcesVerified: false` because full original source is not
-available for those NVIDIA implementations. Publication verifies the exact
-recorded NVIDIA exception alongside the source/archive hashes and host linkage
-evidence. Vulkan continues to require its complete corresponding source.
+NVIDIA compiler/runtime components retain NVIDIA's license. Original libdevice
+implementation source is unavailable; its retained bitcode is identified as a
+binary input, not original source. This does not change the browser's AGPL/MPL
+boundary. Runtime builds keep their official upstream release pins, checksums,
+executable smoke checks and Android ABI/alignment verification.
