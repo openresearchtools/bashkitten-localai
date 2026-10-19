@@ -8,10 +8,10 @@ and x86_64 provide Vulkan archives. **Every archive includes CPU execution**, so
 separate CPU downloads are unnecessary. Android uses the NDK's Bionic ABI.
 
 `upstreams.json` records the stable release version, its annotated tag object, its
-peeled commit, release URL/ID and our integer package revision. Llama is v0.6.0;
+peeled commit, release URL/ID and our integer package revision. Llama is v0.7.0;
 whisper is v1.9.5. The build verifies the actual release tag, not GitHub's
 `target_commitish` field. No fork or GPU workaround patch is applied. User-selected language, transcription and speech models and GPU drivers are not
-bundled. Whisper r2 additionally includes the small, pinned Silero VAD model for
+bundled. Whisper r3 recipes include the small, pinned Silero VAD model for
 streaming speech activity detection; see [source and conversion](build/vad/README.md).
 
 **Text to speech is included in every llama archive as `bin/llama-tts`.** It is
@@ -32,15 +32,17 @@ Native Linux arm64 uses an arm64 runner; Android cross-compiles with pinned NDK
 r29, API 28. Execution in Termux uses neither QEMU nor proot.
 
 [The daily workflow](.github/workflows/releases.yml) checks upstream stable
-releases at 03:00 UTC. It verifies the current pinned tag has not moved, then
+releases for llama.cpp, whisper.cpp and Silero VAD at 03:00 UTC. It verifies the current pinned tag has not moved, then
 updates and builds only a strictly newer semantic release. An unchanged version,
 a moved backwards `latest` pointer, or unrelated packaging commits do not trigger
-builds. Moved/recreated release tags fail verification instead of silently changing
+builds. A new Silero release updates the retained pristine source and reproduced
+model, and advances the Whisper package revision for its matching build.
+Moved/recreated release tags fail verification instead of silently changing
 source. Build failures require inspection and an explicit manual retry.
 
 For a packaging fix to the same upstream release, increment `packageRevision` in
 `upstreams.json`, commit it and manually dispatch `build.yml`. Revision 1 produces
-`llama-v0.6.0-r1` and `android-llama-v0.6.0-r1` (likewise whisper). Existing release
+`llama-v0.7.0-r1` and `android-llama-v0.7.0-r1` (likewise whisper). Existing release
 tags cannot be overwritten; source SHA and recipe SHA remain in metadata rather
 than being used as user-facing version suffixes. `build/local.sh` remains an
 optional recipe entry point for other contributors; this project's runtime

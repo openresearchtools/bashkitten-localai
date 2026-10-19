@@ -11,6 +11,7 @@ import urllib.parse
 import urllib.request
 
 REPOSITORIES = {'llama': 'ggml-org/llama.cpp', 'whisper': 'ggml-org/whisper.cpp'}
+SILERO_REPOSITORY = 'snakers4/silero-vad'
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -66,6 +67,19 @@ def verify(engine, pin):
         raise ValueError('A positive packageRevision is required')
 
 
+def verify_silero():
+    from vad.verify import verify as verify_inputs
+    source = verify_inputs(ROOT / 'build/vad')['silero']
+    if source['repository'] != 'https://github.com/' + SILERO_REPOSITORY:
+        raise ValueError('Unexpected Silero repository')
+    release = api(f'repos/{SILERO_REPOSITORY}/releases/tags/{urllib.parse.quote(source["tag"], safe="")}')
+    actual = resolve(SILERO_REPOSITORY, release)
+    expected = {**source, 'version': source['tag'], 'repository': SILERO_REPOSITORY}
+    if any(expected.get(key) != value for key, value in actual.items()):
+        raise ValueError('Silero: pinned release/tag provenance changed; refusing to build')
+    return actual
+
+
 def check(pins, write):
     changed = []
     for engine, repository in REPOSITORIES.items():
@@ -78,12 +92,26 @@ def check(pins, write):
         pins[engine] = {**latest, 'packageRevision': 1}
         changed.append(engine)
         print(f'{engine}: new stable release {latest["version"]} at {latest["commit"]}')
+    current_silero = verify_silero()
+    latest_silero = resolve(SILERO_REPOSITORY, api(f'repos/{SILERO_REPOSITORY}/releases/latest'))
+    silero_changed = version(latest_silero['version']) > version(current_silero['version'])
+    if silero_changed:
+        print(f'Silero: new stable release {latest_silero["version"]} at {latest_silero["commit"]}')
+        if write:
+            from vad.update import update
+            update(ROOT / 'build/vad', latest_silero)
+        if 'whisper' not in changed:
+            pins['whisper']['packageRevision'] += 1
+            changed.append('whisper')
+    else:
+        print(f'Silero: no newer stable release ({latest_silero["version"]}); no build')
     if write and changed:
         (ROOT / 'upstreams.json').write_text(json.dumps(pins, indent=2) + '\n')
     if os.environ.get('GITHUB_OUTPUT'):
         with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
             print('engines=' + json.dumps(changed), file=output)
             print('changed=' + str(bool(changed)).lower(), file=output)
+            print('silero_changed=' + str(silero_changed).lower(), file=output)
     return changed
 
 
@@ -95,6 +123,8 @@ def main():
     pins = json.loads((ROOT / 'upstreams.json').read_text())
     if args.verify:
         verify(args.verify, pins[args.verify])
+        if args.verify == 'whisper':
+            verify_silero()
         print(args.verify + ': exact stable release tag verified')
     else:
         check(pins, args.write)

@@ -81,8 +81,9 @@ these are the whisper.cpp format despite the repository's GGUF name.
 
 ### Streaming voice activity
 
-Whisper r2 packages `bin/bashkitten-vad` and
-`models/ggml-silero-v6.2.0.bin`. The helper uses the public persistent-state VAD
+Whisper r3 recipes package `bin/bashkitten-vad` and
+the model path recorded by `models/VAD-SOURCE.json` (currently
+`models/ggml-silero-v6.2.3.bin`). The helper uses the public persistent-state VAD
 API on one CPU thread, independently of the Whisper/Parakeet transcription
 backend. Wait for `READY\n`, then feed mono 16 kHz PCM16LE in 512-sample frames;
 read one float32LE probability per frame. Close stdin or terminate the owned

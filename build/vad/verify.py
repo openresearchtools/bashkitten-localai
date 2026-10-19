@@ -23,7 +23,7 @@ def verify(root):
     return source
 
 
-def reproduce(root, source):
+def convert(root, source, output):
     import torch
     import numpy
     # Execute the unchanged upstream converter against the committed TorchScript
@@ -38,9 +38,17 @@ def reproduce(root, source):
     with tempfile.TemporaryDirectory(prefix='bashkitten-vad-conversion-') as temp:
         converter(str(Path(temp) / 'silero.bin'))
         converted = Path(temp) / f'silero-v{module.__version__}-ggml.bin'
+        output.write_bytes(converted.read_bytes())
+    return torch.__version__, numpy.__version__
+
+
+def reproduce(root, source):
+    with tempfile.TemporaryDirectory(prefix='bashkitten-vad-verify-') as temp:
+        converted = Path(temp) / 'model.bin'
+        torch_version, numpy_version = convert(root, source, converted)
         if converted.read_bytes() != (root / source['model']['file']).read_bytes():
-            raise RuntimeError('Converted VAD model differs from the pinned hosted bytes')
-    print(f'Exact VAD conversion verified (torch {torch.__version__}, numpy {numpy.__version__})')
+            raise RuntimeError('Converted VAD model differs from the pinned bytes')
+    print(f'Exact VAD conversion verified (torch {torch_version}, numpy {numpy_version})')
 
 
 if __name__ == '__main__':

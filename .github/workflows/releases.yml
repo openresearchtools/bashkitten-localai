@@ -16,17 +16,31 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: main
-      - name: Resolve newer stable release tags
+      - name: Check engine and Silero stable releases
+        id: available
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 build/releases.py
+      - name: Prepare pinned model conversion tools only for a new Silero release
+        if: steps.available.outputs.silero_changed == 'true'
+        run: |
+          python3 -m venv .vad-verify
+          .vad-verify/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch==2.9.1+cpu numpy==2.3.5
+      - name: Materialize newer stable releases
+        if: steps.available.outputs.changed == 'true'
         id: releases
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 build/releases.py --write
+        run: |
+          PYTHON=python3
+          if [ -x .vad-verify/bin/python ]; then PYTHON=.vad-verify/bin/python; fi
+          "$PYTHON" build/releases.py --write
       - name: Commit exact release pins
         if: steps.releases.outputs.changed == 'true'
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add upstreams.json
+          git add upstreams.json build/vad/SOURCE.json build/vad/SILERO-LICENSE build/vad/upstream/silero build/vad/models
           git commit -m 'Update pinned upstream stable releases'
           git push origin HEAD:main
       - name: Build only newly released engines
