@@ -49,7 +49,7 @@ optional recipe entry point for other contributors; this project's runtime
 production and validation do not require local compilation.
 
 Actions persist CMake/ccache/npm caches and builder layers. Each matrix job uploads
-its archive and complete source immediately. Optional publication waits until the
+its runtime and matching source archive immediately. Optional publication waits until the
 complete requested matrix passes. Desktop tags start with `llama-` or `whisper-`;
 Android tags start with `android-llama-` or `android-whisper-`, so one platform's
 release cannot displace another platform's downloads.
@@ -105,3 +105,9 @@ version, an unknown bundled/system dependency, or an unaccounted statically
 incorporated archive member/CRT object. Each delivered source archive includes
 actual compiler commands and linker maps; artifact metadata binds its name and
 SHA256. These checks apply to both engines and every platform/backend.
+
+CUDA additionally uses NVIDIA device math/compiler runtime components whose
+original implementation source is unavailable. Their exact inputs and full
+NVIDIA notices are retained under the authorized separate-runtime policy;
+they are not relicensed MIT. CUDA metadata reports this exception explicitly,
+while Vulkan artifacts retain complete corresponding-source verification.

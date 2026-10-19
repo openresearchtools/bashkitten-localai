@@ -16,6 +16,10 @@ remain in `LICENSES.txt` and the corresponding source archives.
 
 Versions use the upstream release tag plus our package revision (r1, r2, etc.).
 The manifest verifies the release tag’s peeled commit. Each archive records its exact sources, ABI, executables, linked libraries and
-licenses. Complete corresponding source, manifest and SHA256SUMS accompany the
-release. Build success does not establish hardware/device or full BashKitten
+licenses. Matching source archives, manifest and SHA256SUMS accompany the
+release. CUDA engines also incorporate NVIDIA device math/compiler runtime code
+under NVIDIA's own license; its original implementation source is unavailable.
+The archives retain full NVIDIA notices and exact binary-input provenance rather
+than claiming that component is MIT-licensed or supplied as original source.
+Build success does not establish hardware/device or full BashKitten
 acceptance. See the runtime integration document for supported interfaces.
