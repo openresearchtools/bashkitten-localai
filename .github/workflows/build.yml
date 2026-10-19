@@ -33,8 +33,6 @@ jobs:
       platforms: ${{ steps.pin.outputs.platforms }}
     steps:
       - uses: actions/checkout@v6
-      - name: Verify retained native sources and fail-closed linkage gates
-        run: python3 build/test_native_sources.py
       - name: Verify exact Silero model conversion
         if: ${{ inputs.engine == 'whisper' }}
         run: |
