@@ -2030,7 +2030,19 @@
           "usr/local/cuda-13.2/targets/x86_64-linux/include/vector_types.h": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75",
           "usr/share/doc/cuda-cudart-dev-13-2/copyright": "088381bc2d891e719a2a9398645b00bb45f3b24231473a8283ac7e3e66b8a028"
         },
-        "selection": "All include/ source files and the complete package copyright/EULA; binary libraries and compiler programs are not redistributed."
+        "selection": "All include/ source files and the complete package copyright/EULA; binary libraries and compiler programs are not redistributed.",
+        "binaryInputs": {
+          "usr/local/cuda-13.2/targets/x86_64-linux/lib/libcudadevrt.a": {
+            "sha256": "0af47c60e71c62b5a622b288becb6b30fe67dbcb598c77b8093094c1236aa1c2",
+            "size": 1025476,
+            "kind": "static-runtime"
+          },
+          "usr/local/cuda-13.2/targets/x86_64-linux/lib/libcudart_static.a": {
+            "sha256": "dee93f5e3b5a6f59ef87d4d5d0a26ba238cff6360222170470b23f1dd110261d",
+            "size": 1495352,
+            "kind": "static-runtime"
+          }
+        }
       },
       "cuda-crt-13-2": {
         "version": "13.2.86-1",
@@ -2076,7 +2088,29 @@
           "usr/local/cuda-13.2/targets/x86_64-linux/include/fatbinary_section.h": "367b947f2df9f32189c787a7ab4a419deb63bf5ed459afa73a58184e8522b6bc",
           "usr/share/doc/cuda-nvcc-13-2/copyright": "088381bc2d891e719a2a9398645b00bb45f3b24231473a8283ac7e3e66b8a028"
         },
-        "selection": "All include/ source files and the complete package copyright/EULA; binary libraries and compiler programs are not redistributed."
+        "selection": "All include/ source files and the complete package copyright/EULA; binary libraries and compiler programs are not redistributed.",
+        "binaryInputs": {
+          "usr/local/cuda-13.2/bin/cudafe++": {
+            "sha256": "36b55f45473656780daefe49f4e01143434e8377859804e21e1f800d86a1f79e",
+            "size": 15368072,
+            "kind": "compiler"
+          },
+          "usr/local/cuda-13.2/bin/nvcc": {
+            "sha256": "e0341e832da4c4c9c412c0722ac1a9e6944d0c0fcb36f3cd51d2fe11435f46e5",
+            "size": 33994064,
+            "kind": "compiler"
+          },
+          "usr/local/cuda-13.2/bin/nvlink": {
+            "sha256": "f3123521f39129703546c0fd53dab7c033f5de1eed694266dbd0ceef3cfb1eab",
+            "size": 42500328,
+            "kind": "compiler"
+          },
+          "usr/local/cuda-13.2/bin/ptxas": {
+            "sha256": "19e72e997567f783361f2b27403689d4254cde5d6ee78757660217126cd1a0e7",
+            "size": 47149992,
+            "kind": "compiler"
+          }
+        }
       },
       "libcublas-dev-13-2": {
         "version": "13.4.1.3-1",
@@ -2093,6 +2127,17 @@
           "usr/share/doc/libcublas-dev-13-2/copyright": "088381bc2d891e719a2a9398645b00bb45f3b24231473a8283ac7e3e66b8a028"
         },
         "selection": "All include/ source files and the complete package copyright/EULA; binary libraries and compiler programs are not redistributed."
+      },
+      "libnvvm-13-2": {
+        "version": "13.2.86-1",
+        "url": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/libnvvm-13-2_13.2.86-1_amd64.deb",
+        "sha256": "a4806fe86ee3f47cc912fe1dd9fe68e831536d4572386ea7a4ee2ad969943f5e",
+        "size": 45459016,
+        "retainedFiles": {
+          "usr/local/cuda-13.2/nvvm/libdevice/libdevice.10.bc": "0c6b4d4e4c033e2faffcc6f671c68fec5e813020845a5a08f1dbdd35c19629d6",
+          "usr/share/doc/libnvvm-13-2/copyright": "088381bc2d891e719a2a9398645b00bb45f3b24231473a8283ac7e3e66b8a028"
+        },
+        "selection": "Original NVIDIA libdevice bitcode and full package notice. Bitcode is a binary compiler input, not original human-readable implementation source."
       }
     },
     "arm64": {
@@ -4123,7 +4168,19 @@
           "usr/local/cuda-13.2/targets/sbsa-linux/include/vector_types.h": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75",
           "usr/share/doc/cuda-cudart-dev-13-2/copyright": "088381bc2d891e719a2a9398645b00bb45f3b24231473a8283ac7e3e66b8a028"
         },
-        "selection": "All include/ source files and the complete package copyright/EULA; binary libraries and compiler programs are not redistributed."
+        "selection": "All include/ source files and the complete package copyright/EULA; binary libraries and compiler programs are not redistributed.",
+        "binaryInputs": {
+          "usr/local/cuda-13.2/targets/sbsa-linux/lib/libcudadevrt.a": {
+            "sha256": "8427dce1b8b661c0d59177b6e0900eb3ff051a52b76c74cf1b1d00ec35d69dad",
+            "size": 1025684,
+            "kind": "static-runtime"
+          },
+          "usr/local/cuda-13.2/targets/sbsa-linux/lib/libcudart_static.a": {
+            "sha256": "ae3224672fa116a11b22a82afbcdde23f8970d5259b50803802ff6b5309c9021",
+            "size": 1484806,
+            "kind": "static-runtime"
+          }
+        }
       },
       "cuda-crt-13-2": {
         "version": "13.2.86-1",
@@ -4169,7 +4226,29 @@
           "usr/local/cuda-13.2/targets/sbsa-linux/include/fatbinary_section.h": "367b947f2df9f32189c787a7ab4a419deb63bf5ed459afa73a58184e8522b6bc",
           "usr/share/doc/cuda-nvcc-13-2/copyright": "088381bc2d891e719a2a9398645b00bb45f3b24231473a8283ac7e3e66b8a028"
         },
-        "selection": "All include/ source files and the complete package copyright/EULA; binary libraries and compiler programs are not redistributed."
+        "selection": "All include/ source files and the complete package copyright/EULA; binary libraries and compiler programs are not redistributed.",
+        "binaryInputs": {
+          "usr/local/cuda-13.2/bin/cudafe++": {
+            "sha256": "87bcbf148bcd63f6079ca3682359d9a7facf0ac5fc996f9f79826be7535a48fa",
+            "size": 12514104,
+            "kind": "compiler"
+          },
+          "usr/local/cuda-13.2/bin/nvcc": {
+            "sha256": "5b6605e82f7f06b514ea86c8a10b67810f347ee0a1b5fc674f828176be6e0f27",
+            "size": 29858648,
+            "kind": "compiler"
+          },
+          "usr/local/cuda-13.2/bin/nvlink": {
+            "sha256": "ebfbd9a9c08547cec218caa9ef505411990ea492e0d86563bdf0fd16aed1831f",
+            "size": 37529000,
+            "kind": "compiler"
+          },
+          "usr/local/cuda-13.2/bin/ptxas": {
+            "sha256": "e4c5a1a9273185c1330c36a0858a71d72a8f842dbe9bd053089e9c997d89ac66",
+            "size": 41542752,
+            "kind": "compiler"
+          }
+        }
       },
       "libcublas-dev-13-2": {
         "version": "13.4.1.3-1",
@@ -4186,6 +4265,17 @@
           "usr/share/doc/libcublas-dev-13-2/copyright": "088381bc2d891e719a2a9398645b00bb45f3b24231473a8283ac7e3e66b8a028"
         },
         "selection": "All include/ source files and the complete package copyright/EULA; binary libraries and compiler programs are not redistributed."
+      },
+      "libnvvm-13-2": {
+        "version": "13.2.86-1",
+        "url": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/sbsa/libnvvm-13-2_13.2.86-1_arm64.deb",
+        "sha256": "fa22d6cf5151304d681b9ae1ccd72d5bfbacf1e2bf30ccee1f149e0f87b2c375",
+        "size": 40170956,
+        "retainedFiles": {
+          "usr/local/cuda-13.2/nvvm/libdevice/libdevice.10.bc": "0c6b4d4e4c033e2faffcc6f671c68fec5e813020845a5a08f1dbdd35c19629d6",
+          "usr/share/doc/libnvvm-13-2/copyright": "088381bc2d891e719a2a9398645b00bb45f3b24231473a8283ac7e3e66b8a028"
+        },
+        "selection": "Original NVIDIA libdevice bitcode and full package notice. Bitcode is a binary compiler input, not original human-readable implementation source."
       }
     }
   },
@@ -4209,5 +4299,39 @@
     "sha256": "fdd0045510255367aab77d97673d7c939ff05a6c6291358bbf505f87bd295d52",
     "file": "cccl-v3.2.0.tar.gz"
   },
-  "modified": false
+  "modified": false,
+  "nvidiaBinaryComponents": {
+    "authorization": "19 October 2026: user directed retaining CUDA in the separate MIT runtime daughter repository, preserving NVIDIA licenses and provenance despite unavailable original implementation source. This does not relicense NVIDIA code or change the browser license boundary.",
+    "license": "NVIDIA CUDA Toolkit EULA; full text in CUDA-LICENSE.txt",
+    "libdevice": {
+      "package": "libnvvm-13-2",
+      "version": "13.2.86-1",
+      "input": "usr/local/cuda-13.2/nvvm/libdevice/libdevice.10.bc",
+      "originalImplementationSourceAvailable": false,
+      "incorporationEvidence": "Old Whisper r3 Linux arm64 libggml-cuda.so contains the exact __nv_erff coefficient sets and branch threshold; see VERIFICATION.md. Bitcode retained without claiming original source."
+    },
+    "compilerHelpers": {
+      "package": "cuda-nvcc-13-2",
+      "version": "13.2.86-1",
+      "originalImplementationSourceAvailable": false,
+      "incorporationEvidence": "Old artifact device ELF has NVIDIA-generated division, remainder, reciprocal and warp helpers. Exact compiler input hashes are recorded; no unsupported assignment to libcudadevrt is made."
+    },
+    "staticRuntimeCandidates": {
+      "package": "cuda-cudart-dev-13-2",
+      "version": "13.2.86-1",
+      "inputs": [
+        "libcudadevrt.a",
+        "libcudart_static.a"
+      ],
+      "originalImplementationSourceAvailable": false,
+      "incorporationEvidence": "These are verified compiler/link inputs, not an assertion that archive members were incorporated. Per-target linker maps record actual observed members."
+    },
+    "externalRuntimePrerequisites": [
+      "CUDA 13 compatible NVIDIA driver",
+      "libcuda.so.1",
+      "libcudart.so.13",
+      "libcublas.so.13",
+      "libcublasLt.so.13 (transitive)"
+    ]
+  }
 }
