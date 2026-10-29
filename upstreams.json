@@ -1,12 +1,12 @@
 {
   "llama": {
     "repository": "ggml-org/llama.cpp",
-    "version": "v0.7.0",
-    "commit": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
-    "releaseId": 414070533,
-    "releaseUrl": "https://github.com/ggml-org/llama.cpp/releases/tag/v0.7.0",
-    "tagObject": "757cad021b357f417065ddbc41a6e8f87c1f8136",
-    "packageRevision": 2
+    "version": "v0.8.0",
+    "commit": "8642541b255bfb5dc39cd351a178be09013a55d6",
+    "releaseId": 426659904,
+    "releaseUrl": "https://github.com/ggml-org/llama.cpp/releases/tag/v0.8.0",
+    "tagObject": "6ebec9ad2a90f270f0db4a8669c18511d2e82995",
+    "packageRevision": 1
   },
   "whisper": {
     "repository": "ggml-org/whisper.cpp",
